@@ -10,7 +10,7 @@
     <Compile Include="..\WarpCLR.CSharp.Testing\FourBackendsAttribute.cs" Link="Testing\FourBackendsAttribute.cs" />
     <Compile Include="..\WarpCLR.CSharp.Testing\RoslynCompilationFactory.cs" Link="Testing\RoslynCompilationFactory.cs" />
     <ProjectReference Include="..\WarpCLR.CSharp\WarpCLR.CSharp.csproj" />
-    <ProjectReference Include="..\WarpCLR.CSharp.Analyzers\WarpCLR.CSharp.Analyzers.csproj" />
+    <ProjectReference Include="..\WarpCLR.CSharp.Generators\WarpCLR.CSharp.Generators.csproj" />
   </ItemGroup>
   <ItemGroup>
     <Using Include="Microsoft.VisualStudio.TestTools.UnitTesting" />

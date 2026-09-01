@@ -6,9 +6,11 @@
     <PackageReference Include="MSTest" Version="4.0.2" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="..\WarpCLR.CSharp.Testing\FourBackendsAttribute.cs" Link="Testing\FourBackendsAttribute.cs" />
     <ProjectReference Include="..\WarpCLR.CSharp\WarpCLR.CSharp.csproj" />
   </ItemGroup>
   <ItemGroup>
     <Using Include="Microsoft.VisualStudio.TestTools.UnitTesting" />
+    <Using Include="WarpCLR.CSharp.Testing" />
   </ItemGroup>
 </Project>

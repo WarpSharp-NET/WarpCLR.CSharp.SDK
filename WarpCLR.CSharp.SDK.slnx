@@ -1,6 +1,8 @@
 <Solution>
   <Project Path="WarpCLR.CSharp.Analyzers/WarpCLR.CSharp.Analyzers.csproj" />
   <Project Path="WarpCLR.CSharp.Analyzers.Tests/WarpCLR.CSharp.Analyzers.Tests.csproj" />
+  <Project Path="WarpCLR.CSharp.Generators/WarpCLR.CSharp.Generators.csproj" />
+  <Project Path="WarpCLR.CSharp.Generators.Tests/WarpCLR.CSharp.Generators.Tests.csproj" />
   <Project Path="WarpCLR.CSharp/WarpCLR.CSharp.csproj" />
   <Project Path="WarpCLR.CSharp.Tests/WarpCLR.CSharp.Tests.csproj" />
 </Solution>
