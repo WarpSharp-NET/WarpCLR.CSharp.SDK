@@ -1,7 +1,7 @@
 using System.Reflection;
 using WarpCLR.IR;
 
-namespace Warp.CSharp.Tests;
+namespace WarpCLR.CSharp.Tests;
 
 [AttributeUsage(AttributeTargets.Method)]
 public sealed class FourBackendsAttribute : Attribute, ITestDataSource

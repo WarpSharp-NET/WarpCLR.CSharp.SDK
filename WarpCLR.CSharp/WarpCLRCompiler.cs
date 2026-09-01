@@ -1,8 +1,8 @@
 using WarpCLR.Sdk;
 
-namespace Warp.CSharp;
+namespace WarpCLR.CSharp;
 
-public static class WarpCSharpCompiler
+public static class WarpCLRCompiler
 {
     public static WarpModuleCompilation CompileModule(string assemblyPath) =>
         new WarpBuildPipeline().CompileModule(assemblyPath);

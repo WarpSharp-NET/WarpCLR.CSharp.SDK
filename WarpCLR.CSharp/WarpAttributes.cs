@@ -1,4 +1,4 @@
-namespace Warp.CSharp;
+namespace WarpCLR.CSharp;
 
 [AttributeUsage(AttributeTargets.Method, AllowMultiple = false, Inherited = false)]
 public sealed class WarpEntryPointAttribute : Attribute

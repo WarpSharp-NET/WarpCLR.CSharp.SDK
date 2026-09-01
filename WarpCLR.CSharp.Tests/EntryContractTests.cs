@@ -1,6 +1,6 @@
 using WarpCLR.IR;
 
-namespace Warp.CSharp.Tests;
+namespace WarpCLR.CSharp.Tests;
 
 [TestClass]
 public sealed class EntryContractTests

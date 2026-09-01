@@ -1,6 +1,6 @@
 using WarpCLR.Runtime.Device;
 
-namespace Warp.CSharp;
+namespace WarpCLR.CSharp;
 
 public readonly ref struct WarpScopedUInt32Array
 {

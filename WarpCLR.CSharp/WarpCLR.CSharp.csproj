@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <PackageId>Warp.CSharp</PackageId>
+    <PackageId>WarpCLR.CSharp</PackageId>
     <Description>C# semantic APIs for the WarpCLR 0.1.0 profile.</Description>
   </PropertyGroup>
   <ItemGroup>

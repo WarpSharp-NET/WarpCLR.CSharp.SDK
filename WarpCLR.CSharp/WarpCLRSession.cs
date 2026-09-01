@@ -1,14 +1,14 @@
 using WarpCLR.IR;
 using WarpCLR.Runtime.Host;
 
-namespace Warp.CSharp;
+namespace WarpCLR.CSharp;
 
-public sealed class WarpCSharpSession
+public sealed class WarpCLRSession
 {
     private readonly WarpLoadedModule module;
     private readonly WarpDevelopmentSession session;
 
-    internal WarpCSharpSession(
+    internal WarpCLRSession(
         WarpLoadedModule module,
         WarpBackendKind backend)
     {

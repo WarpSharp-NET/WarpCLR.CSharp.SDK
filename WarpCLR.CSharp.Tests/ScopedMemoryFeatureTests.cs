@@ -1,7 +1,7 @@
 using WarpCLR.IR;
 using WarpCLR.Runtime.Device;
 
-namespace Warp.CSharp.Tests;
+namespace WarpCLR.CSharp.Tests;
 
 [TestClass]
 public sealed class ScopedMemoryFeatureTests
@@ -11,7 +11,7 @@ public sealed class ScopedMemoryFeatureTests
     public void Using_scope_reclaims_unsigned_arrays(WarpBackendKind backend)
     {
         Assert.IsTrue(WarpBackendCatalog.Required.Contains(backend));
-        using WarpScope scope = Warp.Scope(128);
+        using WarpScope scope = WarpCLRMemory.Scope(128);
         WarpScopedUInt32Array values = scope.AllocateUInt32Array(4);
 
         values[0] = uint.MaxValue;
@@ -29,7 +29,7 @@ public sealed class ScopedMemoryFeatureTests
     {
         Assert.IsTrue(WarpBackendCatalog.Required.Contains(backend));
         WarpTypeLayout layout = CreateNodeLayout();
-        using WarpScope scope = Warp.Scope(128);
+        using WarpScope scope = WarpCLRMemory.Scope(128);
         WarpScopedObject parent = scope.AllocateObject(layout);
         WarpScopedObject child = scope.AllocateObject(layout);
 
@@ -48,8 +48,8 @@ public sealed class ScopedMemoryFeatureTests
     {
         Assert.IsTrue(WarpBackendCatalog.Required.Contains(backend));
         WarpTypeLayout layout = CreateNodeLayout();
-        using WarpScope first = Warp.Scope(64);
-        using WarpScope second = Warp.Scope(64);
+        using WarpScope first = WarpCLRMemory.Scope(64);
+        using WarpScope second = WarpCLRMemory.Scope(64);
         WarpScopedObject parent = first.AllocateObject(layout);
         WarpScopedObject child = second.AllocateObject(layout);
 
@@ -69,7 +69,7 @@ public sealed class ScopedMemoryFeatureTests
     }
 
     private static WarpTypeLayout CreateNodeLayout() => new(
-        "Warp.CSharp.Tests.Node",
+        "WarpCLR.CSharp.Tests.Node",
         size: 8,
         alignment: 8,
         fields:

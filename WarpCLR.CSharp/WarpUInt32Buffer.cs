@@ -1,6 +1,6 @@
 using System.Collections;
 
-namespace Warp.CSharp;
+namespace WarpCLR.CSharp;
 
 public sealed class WarpUInt32Buffer : IReadOnlyList<uint>
 {

@@ -2,14 +2,14 @@ using System.Collections.ObjectModel;
 using WarpCLR.IR;
 using WarpCLR.Runtime.Host;
 
-namespace Warp.CSharp;
+namespace WarpCLR.CSharp;
 
-public sealed class WarpCSharpProgram
+public sealed class WarpCLRProgram
 {
     private readonly WarpLoadedModule module;
     private readonly ReadOnlyCollection<string> entryIdentities;
 
-    private WarpCSharpProgram(WarpLoadedModule module)
+    private WarpCLRProgram(WarpLoadedModule module)
     {
         this.module = module;
         entryIdentities = Array.AsReadOnly(
@@ -22,20 +22,20 @@ public sealed class WarpCSharpProgram
 
     public IReadOnlyList<string> EntryIdentities => entryIdentities;
 
-    public static WarpCSharpProgram Load(
+    public static WarpCLRProgram Load(
         string assemblyPath,
         string packageDirectory) => new(
             new WarpDevelopmentModuleLoader().Load(
                 assemblyPath,
                 packageDirectory));
 
-    public static WarpCSharpProgram Load(
+    public static WarpCLRProgram Load(
         ReadOnlyMemory<byte> assemblyBytes,
         string packageDirectory) => new(
             new WarpDevelopmentModuleLoader().Load(
                 assemblyBytes,
                 packageDirectory));
 
-    public WarpCSharpSession CreateDevelopmentSession(WarpBackendKind backend) =>
+    public WarpCLRSession CreateDevelopmentSession(WarpBackendKind backend) =>
         new(module, backend);
 }

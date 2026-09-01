@@ -1,4 +1,4 @@
-namespace Warp.CSharp;
+namespace WarpCLR.CSharp;
 
 public enum WarpExecution
 {
