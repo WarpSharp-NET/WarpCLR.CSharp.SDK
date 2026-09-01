@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="Warp.CSharp/Warp.CSharp.csproj" />
+  <Project Path="Warp.CSharp.Tests/Warp.CSharp.Tests.csproj" />
+</Solution>

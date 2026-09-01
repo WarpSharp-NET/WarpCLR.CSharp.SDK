@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <PackageId>Warp.CSharp</PackageId>
+    <Description>C# semantic APIs for the WarpCLR 0.1.0 profile.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="$(WarpClrRepositoryRoot)\WarpCLR.IR\WarpCLR.IR.csproj" />
+    <ProjectReference Include="$(WarpClrRepositoryRoot)\WarpCLR.Runtime.Device\WarpCLR.Runtime.Device.csproj" />
+    <ProjectReference Include="$(WarpClrRepositoryRoot)\WarpCLR.Runtime.Host\WarpCLR.Runtime.Host.csproj" />
+    <ProjectReference Include="$(WarpClrRepositoryRoot)\WarpCLR.Sdk\WarpCLR.Sdk.csproj" />
+  </ItemGroup>
+</Project>
