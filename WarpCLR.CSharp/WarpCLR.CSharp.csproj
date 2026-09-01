@@ -2,6 +2,8 @@
   <PropertyGroup>
     <PackageId>WarpCLR.CSharp</PackageId>
     <Description>C# SDK for the WarpCLR 0.1.0 profile.</Description>
+    <WarpCLRPackBinRoot Condition="'$(WarpBuildRoot)' != ''">$(WarpBuildRoot)\bin</WarpCLRPackBinRoot>
+    <WarpCLRPackBinRoot Condition="'$(WarpBuildRoot)' == '' and '$(ArtifactsPath)' != ''">$(ArtifactsPath)\bin</WarpCLRPackBinRoot>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="$(WarpClrRepositoryRoot)\WarpCLR.IR\WarpCLR.IR.csproj" />
@@ -13,13 +15,20 @@
     <ProjectReference Include="..\WarpCLR.CSharp.Generators\WarpCLR.CSharp.Generators.csproj" PrivateAssets="all" ReferenceOutputAssembly="false" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\WarpCLR.CSharp.Analyzers\bin\$(Configuration)\netstandard2.0\WarpCLR.CSharp.Analyzers.dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
-    <None Include="..\WarpCLR.CSharp.Generators\bin\$(Configuration)\netstandard2.0\WarpCLR.CSharp.Generators.dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
-    <None Include="..\WarpCLR.CSharp.Build\bin\$(Configuration)\net10.0\WarpCLR.CSharp.Build.deps.json" Pack="true" PackagePath="tools/net10.0/any" Visible="false" />
-    <None Include="..\WarpCLR.CSharp.Build\bin\$(Configuration)\net10.0\WarpCLR.CSharp.Build.dll" Pack="true" PackagePath="tools/net10.0/any" Visible="false" />
-    <None Include="..\WarpCLR.CSharp.Build\bin\$(Configuration)\net10.0\WarpCLR.CSharp.Build.runtimeconfig.json" Pack="true" PackagePath="tools/net10.0/any" Visible="false" />
-    <None Include="..\WarpCLR.CSharp.Build\bin\$(Configuration)\net10.0\WarpCLR.IR.dll" Pack="true" PackagePath="tools/net10.0/any" Visible="false" />
-    <None Include="..\WarpCLR.CSharp.Build\bin\$(Configuration)\net10.0\WarpCLR.Verifier.dll" Pack="true" PackagePath="tools/net10.0/any" Visible="false" />
+    <None Condition="'$(WarpCLRPackBinRoot)' == ''" Include="..\WarpCLR.CSharp.Analyzers\bin\$(Configuration)\netstandard2.0\WarpCLR.CSharp.Analyzers.dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+    <None Condition="'$(WarpCLRPackBinRoot)' == ''" Include="..\WarpCLR.CSharp.Generators\bin\$(Configuration)\netstandard2.0\WarpCLR.CSharp.Generators.dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+    <None Condition="'$(WarpCLRPackBinRoot)' == ''" Include="..\WarpCLR.CSharp.Build\bin\$(Configuration)\net10.0\WarpCLR.CSharp.Build.deps.json" Pack="true" PackagePath="tools/net10.0/any" Visible="false" />
+    <None Condition="'$(WarpCLRPackBinRoot)' == ''" Include="..\WarpCLR.CSharp.Build\bin\$(Configuration)\net10.0\WarpCLR.CSharp.Build.dll" Pack="true" PackagePath="tools/net10.0/any" Visible="false" />
+    <None Condition="'$(WarpCLRPackBinRoot)' == ''" Include="..\WarpCLR.CSharp.Build\bin\$(Configuration)\net10.0\WarpCLR.CSharp.Build.runtimeconfig.json" Pack="true" PackagePath="tools/net10.0/any" Visible="false" />
+    <None Condition="'$(WarpCLRPackBinRoot)' == ''" Include="..\WarpCLR.CSharp.Build\bin\$(Configuration)\net10.0\WarpCLR.IR.dll" Pack="true" PackagePath="tools/net10.0/any" Visible="false" />
+    <None Condition="'$(WarpCLRPackBinRoot)' == ''" Include="..\WarpCLR.CSharp.Build\bin\$(Configuration)\net10.0\WarpCLR.Verifier.dll" Pack="true" PackagePath="tools/net10.0/any" Visible="false" />
+    <None Condition="'$(WarpCLRPackBinRoot)' != ''" Include="$(WarpCLRPackBinRoot)\WarpCLR.CSharp.Analyzers\$(Configuration)\WarpCLR.CSharp.Analyzers.dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+    <None Condition="'$(WarpCLRPackBinRoot)' != ''" Include="$(WarpCLRPackBinRoot)\WarpCLR.CSharp.Generators\$(Configuration)\WarpCLR.CSharp.Generators.dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+    <None Condition="'$(WarpCLRPackBinRoot)' != ''" Include="$(WarpCLRPackBinRoot)\WarpCLR.CSharp.Build\$(Configuration)\WarpCLR.CSharp.Build.deps.json" Pack="true" PackagePath="tools/net10.0/any" Visible="false" />
+    <None Condition="'$(WarpCLRPackBinRoot)' != ''" Include="$(WarpCLRPackBinRoot)\WarpCLR.CSharp.Build\$(Configuration)\WarpCLR.CSharp.Build.dll" Pack="true" PackagePath="tools/net10.0/any" Visible="false" />
+    <None Condition="'$(WarpCLRPackBinRoot)' != ''" Include="$(WarpCLRPackBinRoot)\WarpCLR.CSharp.Build\$(Configuration)\WarpCLR.CSharp.Build.runtimeconfig.json" Pack="true" PackagePath="tools/net10.0/any" Visible="false" />
+    <None Condition="'$(WarpCLRPackBinRoot)' != ''" Include="$(WarpCLRPackBinRoot)\WarpCLR.CSharp.Build\$(Configuration)\WarpCLR.IR.dll" Pack="true" PackagePath="tools/net10.0/any" Visible="false" />
+    <None Condition="'$(WarpCLRPackBinRoot)' != ''" Include="$(WarpCLRPackBinRoot)\WarpCLR.CSharp.Build\$(Configuration)\WarpCLR.Verifier.dll" Pack="true" PackagePath="tools/net10.0/any" Visible="false" />
     <None Include="build\WarpCLR.CSharp.targets" Pack="true" PackagePath="build" Visible="false" />
   </ItemGroup>
 </Project>

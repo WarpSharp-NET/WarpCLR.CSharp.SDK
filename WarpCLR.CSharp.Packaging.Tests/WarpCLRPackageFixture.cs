@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.IO.Compression;
+using System.Reflection;
 using System.Security;
 using System.Text;
 
@@ -118,10 +119,11 @@ internal sealed class WarpCLRPackageFixture : IDisposable
             }
 
             string assemblyPath = Path.Combine(
-                Path.GetDirectoryName(validProject)!,
+                root,
+                "artifacts",
                 "bin",
+                "Consumer",
                 Configuration,
-                "net10.0",
                 "WarpCLRPackageConsumer.dll");
             byte[] consumerAssembly = File.ReadAllBytes(assemblyPath);
 
@@ -178,6 +180,10 @@ internal sealed class WarpCLRPackageFixture : IDisposable
         RunDotNet(
             root,
             warpClrRoot,
+            ["restore", "WarpCLR.slnx", "--force", "--no-cache", "--verbosity", "minimal"]);
+        RunDotNet(
+            root,
+            warpClrRoot,
             ["build", "WarpCLR.Runtime.Device/WarpCLR.Runtime.Device.csproj", "-c", Configuration, "--no-restore", "--verbosity", "minimal"]);
         RunDotNet(
             root,
@@ -206,6 +212,10 @@ internal sealed class WarpCLRPackageFixture : IDisposable
         RunDotNet(
             root,
             sdkRoot,
+            ["restore", project, "--force", "--no-cache", "--verbosity", "minimal"]);
+        RunDotNet(
+            root,
+            sdkRoot,
             ["build", project, "-c", Configuration, "--no-restore", "--verbosity", "minimal"]);
         RunDotNet(
             root,
@@ -222,6 +232,7 @@ internal sealed class WarpCLRPackageFixture : IDisposable
         File.WriteAllText(
             Path.Combine(directory, "Kernels.cs"),
             """
+            using System.Linq;
             using WarpCLR.CSharp;
 
             namespace Consumer;
@@ -262,6 +273,30 @@ internal sealed class WarpCLRPackageFixture : IDisposable
                     WarpScopedUInt32Array values = scope.AllocateUInt32Array(1);
                     values[0] = value;
                     return values[0];
+                }
+            }
+
+            public static class StructuredFeature
+            {
+                public static int Execute()
+                {
+                    var values = new int[32];
+                    WarpCLRStructuredProgram program =
+                        new WarpCLRStructuredProgramBuilder()
+                            .AddStage(
+                                "produce",
+                                values.Length,
+                                index => values[index] = index + 1)
+                            .AddStage(
+                                "consume",
+                                values.Length,
+                                index => values[index] *= 2)
+                            .Build();
+
+                    WarpCLRStructuredRuntime
+                        .CreateCpuReferenceSession()
+                        .Execute(program);
+                    return values.Sum();
                 }
             }
             """,
@@ -354,6 +389,8 @@ internal sealed class WarpCLRPackageFixture : IDisposable
         {
             startInfo.ArgumentList.Add(argument);
         }
+        startInfo.ArgumentList.Add("--artifacts-path");
+        startInfo.ArgumentList.Add(Path.Combine(root, "artifacts"));
 
         string processTemp = Directory.CreateDirectory(
             Path.Combine(root, "process-temp")).FullName;
@@ -367,6 +404,7 @@ internal sealed class WarpCLRPackageFixture : IDisposable
             "consumer-packages");
         startInfo.Environment["DOTNET_CLI_TELEMETRY_OPTOUT"] = "1";
         startInfo.Environment["DOTNET_NOLOGO"] = "1";
+        startInfo.Environment.Remove("WarpBuildRoot");
 
         using Process process = Process.Start(startInfo)
             ?? throw new InvalidOperationException("The dotnet process did not start.");
@@ -392,16 +430,16 @@ internal sealed class WarpCLRPackageFixture : IDisposable
 
     private static string FindRepositoryRoot()
     {
-        DirectoryInfo? directory = new(AppContext.BaseDirectory);
-        while (directory is not null)
+        string? root = typeof(WarpCLRPackageFixture).Assembly
+            .GetCustomAttributes<AssemblyMetadataAttribute>()
+            .SingleOrDefault(
+                attribute => attribute.Key ==
+                    "WarpCLR.CSharp.RepositoryRoot")?
+            .Value;
+        if (root is not null &&
+            File.Exists(Path.Combine(root, "WarpCLR.CSharp.SDK.slnx")))
         {
-            if (File.Exists(
-                    Path.Combine(directory.FullName, "WarpCLR.CSharp.SDK.slnx")))
-            {
-                return directory.FullName;
-            }
-
-            directory = directory.Parent;
+            return root;
         }
 
         throw new InvalidOperationException(

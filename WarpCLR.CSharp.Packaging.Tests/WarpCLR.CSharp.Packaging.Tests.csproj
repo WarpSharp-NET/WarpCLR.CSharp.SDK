@@ -17,4 +17,10 @@
     <Using Include="Microsoft.VisualStudio.TestTools.UnitTesting" />
     <Using Include="WarpCLR.CSharp.Testing" />
   </ItemGroup>
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+      <_Parameter1>WarpCLR.CSharp.RepositoryRoot</_Parameter1>
+      <_Parameter2>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\..'))</_Parameter2>
+    </AssemblyAttribute>
+  </ItemGroup>
 </Project>
