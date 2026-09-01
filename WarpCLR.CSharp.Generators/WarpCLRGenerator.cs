@@ -1,10 +1,10 @@
 using System.Collections.Immutable;
-using System.Security.Cryptography;
 using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Text;
+using WarpCLR.CSharp.Contracts;
 
 namespace WarpCLR.CSharp.Generators;
 
@@ -73,7 +73,7 @@ public sealed class WarpCLRGenerator : IIncrementalGenerator
             EscapeIdentifier(method.Name),
             execution,
             roles.MoveToImmutable(),
-            ComputeGraphHashPlaceholder(identity));
+            WarpCLRGraphHashPlaceholder.Compute(identity));
     }
 
     private static void Generate(
@@ -152,24 +152,4 @@ public sealed class WarpCLRGenerator : IIncrementalGenerator
         return result.ToString();
     }
 
-    private static string ComputeGraphHashPlaceholder(string identity)
-    {
-        byte[] input = Encoding.UTF8.GetBytes(
-            $"WarpCLR.CSharp.GraphPlaceholder/0.1\0{identity}");
-        byte[] hash;
-        using (SHA256 sha256 = SHA256.Create())
-        {
-            hash = sha256.ComputeHash(input);
-        }
-
-        const string hex = "0123456789ABCDEF";
-        var result = new char[hash.Length * 2];
-        for (int index = 0; index < hash.Length; index++)
-        {
-            result[index * 2] = hex[hash[index] >> 4];
-            result[(index * 2) + 1] = hex[hash[index] & 0x0F];
-        }
-
-        return new string(result);
-    }
 }

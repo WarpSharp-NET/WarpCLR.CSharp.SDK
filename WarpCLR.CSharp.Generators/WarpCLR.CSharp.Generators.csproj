@@ -8,6 +8,9 @@
     <Description>Source generators for the WarpCLR C# 0.1.0 profile.</Description>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="..\WarpCLR.CSharp.Contracts\WarpCLRGraphHashPlaceholder.cs" Link="Contracts\WarpCLRGraphHashPlaceholder.cs" />
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.6.0" PrivateAssets="all" />
     <PackageReference Include="System.Text.Json" Version="10.0.11" PrivateAssets="all" />
   </ItemGroup>

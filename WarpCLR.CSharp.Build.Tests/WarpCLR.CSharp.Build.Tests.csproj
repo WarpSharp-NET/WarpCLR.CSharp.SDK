@@ -11,6 +11,7 @@
     <Compile Include="..\WarpCLR.CSharp.Testing\RoslynCompilationFactory.cs" Link="Testing\RoslynCompilationFactory.cs" />
     <Compile Include="..\WarpCLR.CSharp.Testing\WarpCLRGeneratorTestHarness.cs" Link="Testing\WarpCLRGeneratorTestHarness.cs" />
     <ProjectReference Include="..\WarpCLR.CSharp\WarpCLR.CSharp.csproj" />
+    <ProjectReference Include="..\WarpCLR.CSharp.Build\WarpCLR.CSharp.Build.csproj" />
     <ProjectReference Include="..\WarpCLR.CSharp.Generators\WarpCLR.CSharp.Generators.csproj" />
   </ItemGroup>
   <ItemGroup>

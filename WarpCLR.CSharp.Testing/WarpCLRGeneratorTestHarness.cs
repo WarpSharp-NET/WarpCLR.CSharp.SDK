@@ -1,9 +1,9 @@
 using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
-using WarpCLR.CSharp.Testing;
+using WarpCLR.CSharp.Generators;
 
-namespace WarpCLR.CSharp.Generators.Tests;
+namespace WarpCLR.CSharp.Testing;
 
 internal sealed class WarpCLRGeneratorTestResult
 {
@@ -43,11 +43,12 @@ internal static class WarpCLRGeneratorTestHarness
 {
     public static WarpCLRGeneratorTestResult Run(
         string assemblyName,
-        params string[] sources)
+        params string[] sources) => Run(
+            RoslynCompilationFactory.Create(assemblyName, sources));
+
+    public static WarpCLRGeneratorTestResult Run(CSharpCompilation input)
     {
-        CSharpCompilation input = RoslynCompilationFactory.Create(
-            assemblyName,
-            sources);
+        ArgumentNullException.ThrowIfNull(input);
         var generator = new WarpCLRGenerator();
         GeneratorDriver driver = CSharpGeneratorDriver.Create(
             [generator.AsSourceGenerator()],

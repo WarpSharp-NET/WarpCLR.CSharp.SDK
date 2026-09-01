@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <PackageId>WarpCLR.CSharp.Build</PackageId>
+    <Description>Post-compile verification for the WarpCLR C# 0.1.0 profile.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="..\WarpCLR.CSharp.Contracts\WarpCLRGraphHashPlaceholder.cs" Link="Contracts\WarpCLRGraphHashPlaceholder.cs" />
+    <ProjectReference Include="$(WarpClrRepositoryRoot)\WarpCLR.Verifier\WarpCLR.Verifier.csproj" />
+  </ItemGroup>
+</Project>
