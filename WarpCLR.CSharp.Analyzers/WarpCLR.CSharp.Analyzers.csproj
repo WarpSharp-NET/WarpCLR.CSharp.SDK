@@ -4,6 +4,7 @@
     <IsRoslynComponent>true</IsRoslynComponent>
     <ProduceReferenceAssembly>true</ProduceReferenceAssembly>
     <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+    <IsPackable>false</IsPackable>
     <PackageId>WarpCLR.CSharp.Analyzers</PackageId>
     <Description>Correctness analyzers for the WarpCLR C# 0.1.0 profile.</Description>
   </PropertyGroup>

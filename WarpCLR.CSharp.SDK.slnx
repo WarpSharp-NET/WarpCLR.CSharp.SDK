@@ -5,6 +5,7 @@
   <Project Path="WarpCLR.CSharp.Build.Tests/WarpCLR.CSharp.Build.Tests.csproj" />
   <Project Path="WarpCLR.CSharp.Generators/WarpCLR.CSharp.Generators.csproj" />
   <Project Path="WarpCLR.CSharp.Generators.Tests/WarpCLR.CSharp.Generators.Tests.csproj" />
+  <Project Path="WarpCLR.CSharp.Packaging.Tests/WarpCLR.CSharp.Packaging.Tests.csproj" />
   <Project Path="WarpCLR.CSharp/WarpCLR.CSharp.csproj" />
   <Project Path="WarpCLR.CSharp.Tests/WarpCLR.CSharp.Tests.csproj" />
 </Solution>

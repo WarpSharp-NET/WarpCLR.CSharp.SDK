@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
     <PackageId>WarpCLR.CSharp.Build</PackageId>
     <Description>Post-compile verification for the WarpCLR C# 0.1.0 profile.</Description>
   </PropertyGroup>

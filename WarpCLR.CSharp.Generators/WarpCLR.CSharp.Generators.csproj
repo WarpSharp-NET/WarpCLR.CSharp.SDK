@@ -4,6 +4,7 @@
     <IsRoslynComponent>true</IsRoslynComponent>
     <ProduceReferenceAssembly>true</ProduceReferenceAssembly>
     <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+    <IsPackable>false</IsPackable>
     <PackageId>WarpCLR.CSharp.Generators</PackageId>
     <Description>Source generators for the WarpCLR C# 0.1.0 profile.</Description>
   </PropertyGroup>
@@ -12,6 +13,5 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.6.0" PrivateAssets="all" />
-    <PackageReference Include="System.Text.Json" Version="10.0.11" PrivateAssets="all" />
   </ItemGroup>
 </Project>

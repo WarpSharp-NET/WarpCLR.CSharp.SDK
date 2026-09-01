@@ -1,0 +1,12 @@
+<Project>
+  <PropertyGroup>
+    <WarpCLRBuildToolPath>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../tools/net10.0/any/WarpCLR.CSharp.Build.dll'))</WarpCLRBuildToolPath>
+  </PropertyGroup>
+  <Target Name="WarpCLRFinalizeAssembly"
+          AfterTargets="CoreCompile"
+          Condition="'$(DesignTimeBuild)' != 'true' and '$(IsCrossTargetingBuild)' != 'true' and '@(IntermediateAssembly)' != ''">
+    <Error Condition="'$(DOTNET_HOST_PATH)' == ''"
+           Text="WCSB0002: The .NET host path is not available." />
+    <Exec Command="&quot;$(DOTNET_HOST_PATH)&quot; &quot;$(WarpCLRBuildToolPath)&quot; &quot;@(IntermediateAssembly->'%(FullPath)')&quot;" />
+  </Target>
+</Project>

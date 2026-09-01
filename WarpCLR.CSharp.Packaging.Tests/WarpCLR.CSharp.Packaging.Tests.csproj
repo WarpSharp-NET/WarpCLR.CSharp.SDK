@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="MSTest" Version="4.0.2" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="..\WarpCLR.CSharp.Testing\FourBackendsAttribute.cs" Link="Testing\FourBackendsAttribute.cs" />
+    <ProjectReference Include="..\WarpCLR.CSharp\WarpCLR.CSharp.csproj" />
+    <ProjectReference Include="$(WarpClrRepositoryRoot)\WarpCLR.IR\WarpCLR.IR.csproj" />
+    <ProjectReference Include="$(WarpClrRepositoryRoot)\WarpCLR.Runtime.Host\WarpCLR.Runtime.Host.csproj" />
+    <ProjectReference Include="$(WarpClrRepositoryRoot)\WarpCLR.Sdk\WarpCLR.Sdk.csproj" />
+    <ProjectReference Include="$(WarpClrRepositoryRoot)\WarpCLR.Verifier\WarpCLR.Verifier.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Using Include="Microsoft.VisualStudio.TestTools.UnitTesting" />
+    <Using Include="WarpCLR.CSharp.Testing" />
+  </ItemGroup>
+</Project>
