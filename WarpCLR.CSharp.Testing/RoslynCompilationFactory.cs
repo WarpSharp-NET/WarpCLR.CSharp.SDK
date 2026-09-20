@@ -3,7 +3,6 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Text;
 using WarpCLR.IR;
-using WarpCLR.Runtime.Device;
 using WarpCLR.Runtime.Host;
 using WarpCLR.Sdk;
 
@@ -58,7 +57,6 @@ internal static class RoslynCompilationFactory
         [
             typeof(WarpEntryPointAttribute).Assembly.Location,
             typeof(WarpBackendKind).Assembly.Location,
-            typeof(WarpScopedRegion).Assembly.Location,
             typeof(WarpHostException).Assembly.Location,
             typeof(WarpBuildPipeline).Assembly.Location,
         ];

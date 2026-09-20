@@ -38,19 +38,4 @@ internal static class WarpDiagnosticDescriptors
         DiagnosticSeverity.Error,
         isEnabledByDefault: true);
 
-    public static readonly DiagnosticDescriptor ScopeRequiresUsing = new(
-        "WCS2001",
-        "Warp scope requires using",
-        "Declare the Warp scope with a using statement or using declaration",
-        Category,
-        DiagnosticSeverity.Error,
-        isEnabledByDefault: true);
-
-    public static readonly DiagnosticDescriptor ScopedValueEscape = new(
-        "WCS2002",
-        "Warp scoped value escapes",
-        "A Warp scoped value cannot leave its activation through a return value",
-        Category,
-        DiagnosticSeverity.Error,
-        isEnabledByDefault: true);
 }

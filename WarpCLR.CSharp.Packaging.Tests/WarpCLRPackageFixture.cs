@@ -14,11 +14,10 @@ internal sealed class WarpCLRPackageFixture : IDisposable
     private static readonly string[] WarpCLRPackageProjects =
     [
         "WarpCLR.IR/WarpCLR.IR.csproj",
-        "WarpCLR.Runtime.Device/WarpCLR.Runtime.Device.csproj",
-        "WarpCLR.Backend.Cpu/WarpCLR.Backend.Cpu.csproj",
-        "WarpCLR.Backend.Nvidia/WarpCLR.Backend.Nvidia.csproj",
-        "WarpCLR.Backend.Amd/WarpCLR.Backend.Amd.csproj",
-        "WarpCLR.Backend.Intel/WarpCLR.Backend.Intel.csproj",
+        "WarpCLR.Backend.CoreCLR/WarpCLR.Backend.CoreCLR.csproj",
+        "WarpCLR.Backend.NVPTX/WarpCLR.Backend.NVPTX.csproj",
+        "WarpCLR.Backend.AMDGPU/WarpCLR.Backend.AMDGPU.csproj",
+        "WarpCLR.Backend.SPIRV/WarpCLR.Backend.SPIRV.csproj",
         "WarpCLR.Verifier/WarpCLR.Verifier.csproj",
         "WarpCLR.Compiler/WarpCLR.Compiler.csproj",
         "WarpCLR.Runtime.Host/WarpCLR.Runtime.Host.csproj",
@@ -123,7 +122,7 @@ internal sealed class WarpCLRPackageFixture : IDisposable
                 "artifacts",
                 "bin",
                 "Consumer",
-                Configuration,
+                Configuration.ToLowerInvariant(),
                 "WarpCLRPackageConsumer.dll");
             byte[] consumerAssembly = File.ReadAllBytes(assemblyPath);
 
@@ -138,10 +137,10 @@ internal sealed class WarpCLRPackageFixture : IDisposable
                 ["build", invalidProject, "-c", Configuration, "--no-restore", "--verbosity", "minimal"],
                 requireSuccess: false);
             if (invalidBuild.ExitCode == 0 ||
-                !invalidBuild.Output.Contains("WCS2001", StringComparison.Ordinal))
+                !invalidBuild.Output.Contains("WCS1003", StringComparison.Ordinal))
             {
                 throw new InvalidOperationException(
-                    "The packaged analyzer did not reject an unscoped allocation.");
+                    "The packaged analyzer did not reject an operation outside the portable profile.");
             }
 
             return new WarpCLRPackageFixture(
@@ -181,10 +180,6 @@ internal sealed class WarpCLRPackageFixture : IDisposable
             root,
             warpClrRoot,
             ["restore", "WarpCLR.slnx", "--force", "--no-cache", "--verbosity", "minimal"]);
-        RunDotNet(
-            root,
-            warpClrRoot,
-            ["build", "WarpCLR.Runtime.Device/WarpCLR.Runtime.Device.csproj", "-c", Configuration, "--no-restore", "--verbosity", "minimal"]);
         RunDotNet(
             root,
             warpClrRoot,
@@ -232,7 +227,6 @@ internal sealed class WarpCLRPackageFixture : IDisposable
         File.WriteAllText(
             Path.Combine(directory, "Kernels.cs"),
             """
-            using System.Linq;
             using WarpCLR.CSharp;
 
             namespace Consumer;
@@ -243,6 +237,12 @@ internal sealed class WarpCLRPackageFixture : IDisposable
                 public static uint Transform(
                     [WarpInput] uint value,
                     [WarpScalar] uint scalar) => (value * 33u) + scalar;
+
+                [WarpEntryPoint]
+                public static uint Select(
+                    [WarpInput] uint value,
+                    [WarpScalar] uint threshold) =>
+                    value <= threshold ? value + 1u : value - 1u;
 
                 [WarpEntryPoint(WarpExecution.ReduceWrappingSum)]
                 public static uint Sum([WarpInput] uint value) => value;
@@ -258,6 +258,8 @@ internal sealed class WarpCLRPackageFixture : IDisposable
             {
                 public static WarpMapEntry Map => WarpCLRKernelsEntries.Transform;
 
+                public static WarpMapEntry Conditional => WarpCLRKernelsEntries.Select;
+
                 public static WarpReductionEntry Sum => WarpCLRKernelsEntries.Sum;
 
                 public static WarpReductionEntry Minimum => WarpCLRKernelsEntries.Minimum;
@@ -265,40 +267,6 @@ internal sealed class WarpCLRPackageFixture : IDisposable
                 public static WarpReductionEntry Maximum => WarpCLRKernelsEntries.Maximum;
             }
 
-            public static class MemoryFeature
-            {
-                public static uint RoundTrip(uint value)
-                {
-                    using WarpScope scope = WarpCLRMemory.Scope(16);
-                    WarpScopedUInt32Array values = scope.AllocateUInt32Array(1);
-                    values[0] = value;
-                    return values[0];
-                }
-            }
-
-            public static class StructuredFeature
-            {
-                public static int Execute()
-                {
-                    var values = new int[32];
-                    WarpCLRStructuredProgram program =
-                        new WarpCLRStructuredProgramBuilder()
-                            .AddStage(
-                                "produce",
-                                values.Length,
-                                index => values[index] = index + 1)
-                            .AddStage(
-                                "consume",
-                                values.Length,
-                                index => values[index] *= 2)
-                            .Build();
-
-                    WarpCLRStructuredRuntime
-                        .CreateCpuReferenceSession()
-                        .Execute(program);
-                    return values.Sum();
-                }
-            }
             """,
             Utf8WithoutBom);
         return projectPath;
@@ -311,19 +279,18 @@ internal sealed class WarpCLRPackageFixture : IDisposable
         string projectPath = Path.Combine(directory, "Consumer.csproj");
         WriteConsumerProject(projectPath, root, feed, "WarpCLRInvalidConsumer");
         File.WriteAllText(
-            Path.Combine(directory, "InvalidMemory.cs"),
+            Path.Combine(directory, "InvalidKernel.cs"),
             """
             using WarpCLR.CSharp;
 
             namespace Consumer;
 
-            public static class InvalidMemory
+            public static class InvalidKernel
             {
-                public static uint AllocateWithoutUsing()
-                {
-                    WarpScope scope = WarpCLRMemory.Scope(16);
-                    return (uint)scope.AllocationCount;
-                }
+                [WarpEntryPoint]
+                public static uint Divide(
+                    [WarpInput] uint value,
+                    [WarpScalar] uint divisor) => value / divisor;
             }
             """,
             Utf8WithoutBom);

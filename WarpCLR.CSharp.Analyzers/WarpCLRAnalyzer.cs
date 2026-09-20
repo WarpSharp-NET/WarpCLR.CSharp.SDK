@@ -1,6 +1,5 @@
 using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Operations;
@@ -16,21 +15,12 @@ public sealed class WarpCLRAnalyzer : DiagnosticAnalyzer
         "WarpCLR.CSharp.WarpInputAttribute";
     private const string ScalarAttributeName =
         "WarpCLR.CSharp.WarpScalarAttribute";
-    private const string WarpTypeName = "WarpCLR.CSharp.WarpCLRMemory";
-    private const string ScopeTypeName = "WarpCLR.CSharp.WarpScope";
-    private const string ScopedObjectTypeName =
-        "WarpCLR.CSharp.WarpScopedObject";
-    private const string ScopedArrayTypeName =
-        "WarpCLR.CSharp.WarpScopedUInt32Array";
-
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
         ImmutableArray.Create(
             WarpDiagnosticDescriptors.EntryDeclaration,
             WarpDiagnosticDescriptors.ParameterRoles,
             WarpDiagnosticDescriptors.UnsupportedOperation,
-            WarpDiagnosticDescriptors.EntryAllocation,
-            WarpDiagnosticDescriptors.ScopeRequiresUsing,
-            WarpDiagnosticDescriptors.ScopedValueEscape);
+            WarpDiagnosticDescriptors.EntryAllocation);
 
     public override void Initialize(AnalysisContext context)
     {
@@ -66,38 +56,6 @@ public sealed class WarpCLRAnalyzer : DiagnosticAnalyzer
                     entryAttribute));
         }
 
-        IMethodSymbol? scopeMethod = context.Compilation
-            .GetTypeByMetadataName(WarpTypeName)?
-            .GetMembers("Scope")
-            .OfType<IMethodSymbol>()
-            .SingleOrDefault();
-        if (scopeMethod is not null)
-        {
-            context.RegisterOperationAction(
-                analysisContext => AnalyzeScopeInvocation(
-                    analysisContext,
-                    scopeMethod),
-                OperationKind.Invocation);
-        }
-
-        INamedTypeSymbol? scopeType = context.Compilation
-            .GetTypeByMetadataName(ScopeTypeName);
-        INamedTypeSymbol? scopedObjectType = context.Compilation
-            .GetTypeByMetadataName(ScopedObjectTypeName);
-        INamedTypeSymbol? scopedArrayType = context.Compilation
-            .GetTypeByMetadataName(ScopedArrayTypeName);
-        if (scopeType is not null &&
-            scopedObjectType is not null &&
-            scopedArrayType is not null)
-        {
-            context.RegisterOperationAction(
-                analysisContext => AnalyzeReturn(
-                    analysisContext,
-                    scopeType,
-                    scopedObjectType,
-                    scopedArrayType),
-                OperationKind.Return);
-        }
     }
 
     private static void AnalyzeMethod(
@@ -224,73 +182,6 @@ public sealed class WarpCLRAnalyzer : DiagnosticAnalyzer
         }
     }
 
-    private static void AnalyzeScopeInvocation(
-        OperationAnalysisContext context,
-        IMethodSymbol scopeMethod)
-    {
-        var invocation = (IInvocationOperation)context.Operation;
-        if (!SymbolEqualityComparer.Default.Equals(
-                invocation.TargetMethod.OriginalDefinition,
-                scopeMethod.OriginalDefinition) ||
-            IsUsingResource(invocation.Syntax))
-        {
-            return;
-        }
-
-        context.ReportDiagnostic(
-            Diagnostic.Create(
-                WarpDiagnosticDescriptors.ScopeRequiresUsing,
-                invocation.Syntax.GetLocation()));
-    }
-
-    private static bool IsUsingResource(SyntaxNode syntax)
-    {
-        foreach (SyntaxNode ancestor in syntax.AncestorsAndSelf())
-        {
-            if (ancestor is LocalDeclarationStatementSyntax declaration &&
-                declaration.UsingKeyword.IsKind(SyntaxKind.UsingKeyword))
-            {
-                return declaration.Declaration.Span.Contains(syntax.Span);
-            }
-
-            if (ancestor is UsingStatementSyntax usingStatement)
-            {
-                bool inDeclaration = usingStatement.Declaration?.Span
-                    .Contains(syntax.Span) == true;
-                bool inExpression = usingStatement.Expression?.Span
-                    .Contains(syntax.Span) == true;
-                if (inDeclaration || inExpression)
-                {
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
-
-    private static void AnalyzeReturn(
-        OperationAnalysisContext context,
-        INamedTypeSymbol scopeType,
-        INamedTypeSymbol scopedObjectType,
-        INamedTypeSymbol scopedArrayType)
-    {
-        var returnOperation = (IReturnOperation)context.Operation;
-        ITypeSymbol? type = returnOperation.ReturnedValue?.Type;
-        if (type is null ||
-            (!SymbolEqualityComparer.Default.Equals(type, scopeType) &&
-             !SymbolEqualityComparer.Default.Equals(type, scopedObjectType) &&
-             !SymbolEqualityComparer.Default.Equals(type, scopedArrayType)))
-        {
-            return;
-        }
-
-        context.ReportDiagnostic(
-            Diagnostic.Create(
-                WarpDiagnosticDescriptors.ScopedValueEscape,
-                returnOperation.Syntax.GetLocation()));
-    }
-
     private static AttributeData? GetAttribute(
         ISymbol symbol,
         INamedTypeSymbol attributeType) => symbol
@@ -386,6 +277,8 @@ public sealed class WarpCLRAnalyzer : DiagnosticAnalyzer
                 IsSupportedConversion(conversion),
             IUnaryOperation unary => IsSupportedUnary(unary),
             IBinaryOperation binary => IsSupportedBinary(binary),
+            IConditionalOperation conditional =>
+                IsSupportedConditional(conditional),
             ICompoundAssignmentOperation assignment =>
                 assignment.Target is ILocalReferenceOperation &&
                 !assignment.IsChecked &&
@@ -413,8 +306,18 @@ public sealed class WarpCLRAnalyzer : DiagnosticAnalyzer
             if (binary.IsChecked ||
                 binary.IsLifted ||
                 binary.OperatorMethod is not null ||
-                !IsSupportedBinaryOperator(binary.OperatorKind) ||
-                !IsUInt32(binary.LeftOperand.Type) ||
+                !IsUInt32(binary.LeftOperand.Type))
+            {
+                return false;
+            }
+
+            if (IsSupportedComparisonOperator(binary.OperatorKind))
+            {
+                return IsUInt32(binary.RightOperand.Type) &&
+                    binary.Type?.SpecialType == SpecialType.System_Boolean;
+            }
+
+            if (!IsSupportedBinaryOperator(binary.OperatorKind) ||
                 !IsUInt32(binary.Type))
             {
                 return false;
@@ -429,6 +332,11 @@ public sealed class WarpCLRAnalyzer : DiagnosticAnalyzer
                 : IsUInt32(binary.RightOperand.Type);
         }
 
+        private static bool IsSupportedConditional(
+            IConditionalOperation conditional) =>
+            conditional.Condition.Type?.SpecialType == SpecialType.System_Boolean &&
+            (conditional.Type is null || IsUInt32(conditional.Type));
+
         private static bool IsSupportedBinaryOperator(
             BinaryOperatorKind operatorKind) => operatorKind is
                 BinaryOperatorKind.Add or
@@ -440,6 +348,15 @@ public sealed class WarpCLRAnalyzer : DiagnosticAnalyzer
                 BinaryOperatorKind.LeftShift or
                 BinaryOperatorKind.RightShift or
                 BinaryOperatorKind.UnsignedRightShift;
+
+        private static bool IsSupportedComparisonOperator(
+            BinaryOperatorKind operatorKind) => operatorKind is
+                BinaryOperatorKind.Equals or
+                BinaryOperatorKind.NotEquals or
+                BinaryOperatorKind.LessThan or
+                BinaryOperatorKind.LessThanOrEqual or
+                BinaryOperatorKind.GreaterThan or
+                BinaryOperatorKind.GreaterThanOrEqual;
 
         private static bool IsInteger(ITypeSymbol? type) => type?.SpecialType is
             SpecialType.System_Int32 or SpecialType.System_UInt32;

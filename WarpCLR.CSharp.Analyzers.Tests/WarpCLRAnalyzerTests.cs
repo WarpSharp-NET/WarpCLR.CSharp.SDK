@@ -108,7 +108,7 @@ public sealed class WarpCLRAnalyzerTests
 
     [TestMethod]
     [FourBackends]
-    public void Conditional_has_operation_diagnostic(WarpBackendKind backend)
+    public void Conditional_has_no_diagnostic(WarpBackendKind backend)
     {
         AssertBackend(backend);
         const string source = """
@@ -122,7 +122,7 @@ public sealed class WarpCLRAnalyzerTests
             }
             """;
 
-        AssertIds(source, "WCS1003");
+        AssertNoDiagnostics(source);
     }
 
     [TestMethod]
@@ -205,67 +205,6 @@ public sealed class WarpCLRAnalyzerTests
             """;
 
         AssertContainsId(source, "WCS1003");
-    }
-
-    [TestMethod]
-    [FourBackends]
-    public void Scope_without_using_has_scope_diagnostic(WarpBackendKind backend)
-    {
-        AssertBackend(backend);
-        const string source = """
-            using WarpCLR.CSharp;
-
-            public static class HostCode
-            {
-                public static void Execute()
-                {
-                    WarpScope scope = WarpCLRMemory.Scope(64);
-                    scope.Dispose();
-                }
-            }
-            """;
-
-        AssertIds(source, "WCS2001");
-    }
-
-    [TestMethod]
-    [FourBackends]
-    public void Scope_with_using_has_no_diagnostic(WarpBackendKind backend)
-    {
-        AssertBackend(backend);
-        const string source = """
-            using WarpCLR.CSharp;
-
-            public static class HostCode
-            {
-                public static uint Execute()
-                {
-                    using WarpScope scope = WarpCLRMemory.Scope(64);
-                    WarpScopedUInt32Array values = scope.AllocateUInt32Array(1);
-                    values[0] = 17u;
-                    return values[0];
-                }
-            }
-            """;
-
-        AssertNoDiagnostics(source);
-    }
-
-    [TestMethod]
-    [FourBackends]
-    public void Scope_return_has_scope_and_escape_diagnostics(WarpBackendKind backend)
-    {
-        AssertBackend(backend);
-        const string source = """
-            using WarpCLR.CSharp;
-
-            public static class HostCode
-            {
-                public static WarpScope Create() => WarpCLRMemory.Scope(64);
-            }
-            """;
-
-        AssertIds(source, "WCS2001", "WCS2002");
     }
 
     [TestMethod]

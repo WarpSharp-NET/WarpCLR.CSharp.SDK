@@ -286,8 +286,9 @@ public sealed class WarpCLRAssemblyFinalizerTests
             public static class InvalidKernels
             {
                 [WarpEntryPoint]
-                public static uint Branch([WarpInput] uint value) =>
-                    value == 0u ? 1u : value;
+                public static uint Divide(
+                    [WarpInput] uint value,
+                    [WarpScalar] uint divisor) => value / divisor;
             }
             """;
         byte[] original = GenerateAssembly(

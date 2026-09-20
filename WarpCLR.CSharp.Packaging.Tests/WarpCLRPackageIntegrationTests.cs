@@ -25,6 +25,7 @@ public sealed class WarpCLRPackageIntegrationTests
             {
                 "Consumer.Kernels.Maximum",
                 "Consumer.Kernels.Minimum",
+                "Consumer.Kernels.Select",
                 "Consumer.Kernels.Sum",
                 "Consumer.Kernels.Transform",
             },
@@ -53,6 +54,20 @@ public sealed class WarpCLRPackageIntegrationTests
         CollectionAssert.AreEqual(
             input.Select(value => unchecked((value * 33u) + 7u)).ToArray(),
             mapped.ToArray());
+
+        const uint threshold = 17u;
+        WarpUInt32Buffer selected = session.Dispatch(
+            new WarpMapEntry("Consumer.Kernels.Select", 1, 1),
+            [input],
+            [threshold]);
+        CollectionAssert.AreEqual(
+            input
+                .Select(
+                    value => value <= threshold
+                        ? unchecked(value + 1u)
+                        : unchecked(value - 1u))
+                .ToArray(),
+            selected.ToArray());
 
         Assert.AreEqual(
             WrappingSum(input),
@@ -85,11 +100,11 @@ public sealed class WarpCLRPackageIntegrationTests
 
     [TestMethod]
     [FourBackends]
-    public void Packaged_analyzer_rejects_unscoped_allocation(
+    public void Packaged_analyzer_rejects_nonportable_operation(
         WarpBackendKind backend)
     {
         AssertBackend(backend);
-        StringAssert.Contains(Fixture.Value.InvalidBuildOutput, "WCS2001");
+        StringAssert.Contains(Fixture.Value.InvalidBuildOutput, "WCS1003");
     }
 
     [TestMethod]
