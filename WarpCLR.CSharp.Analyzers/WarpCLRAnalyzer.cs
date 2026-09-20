@@ -170,7 +170,10 @@ public sealed class WarpCLRAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        var walker = new ProfileOperationWalker(context.ReportDiagnostic);
+        var walker = new ProfileOperationWalker(
+            context.Compilation,
+            method,
+            context.ReportDiagnostic);
         foreach (IOperation operation in context.OperationBlocks)
         {
             if (operation is IAttributeOperation)
@@ -196,11 +199,19 @@ public sealed class WarpCLRAnalyzer : DiagnosticAnalyzer
 
     private sealed class ProfileOperationWalker : OperationWalker
     {
+        private readonly Compilation compilation;
         private readonly Action<Diagnostic> reportDiagnostic;
+        private readonly HashSet<IMethodSymbol> visiting = new(SymbolEqualityComparer.Default);
+        private readonly HashSet<IMethodSymbol> visited = new(SymbolEqualityComparer.Default);
 
-        public ProfileOperationWalker(Action<Diagnostic> reportDiagnostic)
+        public ProfileOperationWalker(
+            Compilation compilation,
+            IMethodSymbol entry,
+            Action<Diagnostic> reportDiagnostic)
         {
+            this.compilation = compilation;
             this.reportDiagnostic = reportDiagnostic;
+            visiting.Add(entry);
         }
 
         public override void Visit(IOperation? operation)
@@ -244,6 +255,38 @@ public sealed class WarpCLRAnalyzer : DiagnosticAnalyzer
             base.Visit(operation);
         }
 
+        public override void VisitInvocation(IInvocationOperation operation)
+        {
+            base.VisitInvocation(operation);
+
+            IMethodSymbol target = operation.TargetMethod;
+            if (visited.Contains(target) || !visiting.Add(target))
+            {
+                return;
+            }
+
+            try
+            {
+                SyntaxReference declaration = target.DeclaringSyntaxReferences.Single();
+                SyntaxNode syntax = declaration.GetSyntax();
+                SemanticModel model = compilation.GetSemanticModel(syntax.SyntaxTree);
+                IOperation? body = syntax switch
+                {
+                    MethodDeclarationSyntax method when method.Body is not null =>
+                        model.GetOperation(method.Body),
+                    MethodDeclarationSyntax method when method.ExpressionBody is not null =>
+                        model.GetOperation(method.ExpressionBody.Expression),
+                    _ => null,
+                };
+                Visit(body);
+                visited.Add(target);
+            }
+            finally
+            {
+                visiting.Remove(target);
+            }
+        }
+
         private static bool IsAllocation(IOperation operation) => operation is
             IObjectCreationOperation or
             IArrayCreationOperation or
@@ -251,7 +294,7 @@ public sealed class WarpCLRAnalyzer : DiagnosticAnalyzer
             IDelegateCreationOperation or
             IDynamicObjectCreationOperation;
 
-        private static bool IsSupported(IOperation operation) => operation switch
+        private bool IsSupported(IOperation operation) => operation switch
         {
             IMethodBodyOperation => true,
             IBlockOperation => true,
@@ -279,6 +322,8 @@ public sealed class WarpCLRAnalyzer : DiagnosticAnalyzer
             IBinaryOperation binary => IsSupportedBinary(binary),
             IConditionalOperation conditional =>
                 IsSupportedConditional(conditional),
+            IInvocationOperation invocation => IsSupportedInvocation(invocation),
+            IArgumentOperation => true,
             ICompoundAssignmentOperation assignment =>
                 assignment.Target is ILocalReferenceOperation &&
                 !assignment.IsChecked &&
@@ -286,6 +331,29 @@ public sealed class WarpCLRAnalyzer : DiagnosticAnalyzer
             IEmptyOperation => true,
             _ => false,
         };
+
+        private bool IsSupportedInvocation(IInvocationOperation invocation)
+        {
+            IMethodSymbol method = invocation.TargetMethod;
+            return invocation.Instance is null &&
+                method.MethodKind == MethodKind.Ordinary &&
+                method.IsStatic &&
+                !method.IsAbstract &&
+                !method.IsExtern &&
+                !method.IsVararg &&
+                !method.IsGenericMethod &&
+                method.ReturnType.SpecialType == SpecialType.System_UInt32 &&
+                method.Parameters.All(
+                    parameter => parameter.RefKind == RefKind.None &&
+                        parameter.Type.SpecialType == SpecialType.System_UInt32) &&
+                method.ContainingType.ContainingType is null &&
+                !method.ContainingType.IsGenericType &&
+                SymbolEqualityComparer.Default.Equals(
+                    method.ContainingAssembly,
+                    compilation.Assembly) &&
+                method.DeclaringSyntaxReferences.Length == 1 &&
+                !visiting.Contains(method);
+        }
 
         private static bool IsSupportedConversion(
             IConversionOperation conversion) =>

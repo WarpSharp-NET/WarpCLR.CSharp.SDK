@@ -25,7 +25,10 @@ public sealed class WarpCLRAssemblyFinalizerTests
             [WarpEntryPoint]
             public static uint Transform(
                 [WarpInput] uint value,
-                [WarpScalar] uint scalar) => (value * 33u) + scalar;
+                [WarpScalar] uint scalar) => Mix(value, scalar);
+
+            private static uint Mix(uint value, uint scalar) =>
+                (value * 33u) + scalar;
         }
         """;
 
@@ -110,6 +113,29 @@ public sealed class WarpCLRAssemblyFinalizerTests
         Assert.AreEqual(
             first.Module!.AssemblyHash,
             repeated.Module!.AssemblyHash);
+    }
+
+    [TestMethod]
+    [FourBackends]
+    public void Graph_hash_covers_transitive_called_method_bodies(
+        WarpBackendKind backend)
+    {
+        AssertBackend(backend);
+        byte[] firstAssembly = GenerateAssembly(
+            $"CallGraphFirst{backend}",
+            ValidMapSource);
+        byte[] secondAssembly = GenerateAssembly(
+            $"CallGraphSecond{backend}",
+            ValidMapSource.Replace("33u", "34u", StringComparison.Ordinal));
+
+        WarpCLRAssemblyFinalization first = WarpCLRAssemblyFinalizer
+            .FinalizeAssembly(firstAssembly);
+        WarpCLRAssemblyFinalization second = WarpCLRAssemblyFinalizer
+            .FinalizeAssembly(secondAssembly);
+
+        Assert.AreNotEqual(
+            first.Module!.Entries[0].GraphHash,
+            second.Module!.Entries[0].GraphHash);
     }
 
     [TestMethod]

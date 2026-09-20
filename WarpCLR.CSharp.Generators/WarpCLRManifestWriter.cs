@@ -11,6 +11,7 @@ internal static class WarpCLRManifestWriter
         "warp.core.parallel/0.1",
         "warp.core.buffers/0.1",
         "warp.core.control-flow/0.2",
+        "warp.core.calls/0.1",
     ];
 
     public static string Write(

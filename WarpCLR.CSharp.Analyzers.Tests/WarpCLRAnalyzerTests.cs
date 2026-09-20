@@ -127,7 +127,7 @@ public sealed class WarpCLRAnalyzerTests
 
     [TestMethod]
     [FourBackends]
-    public void Method_call_has_operation_diagnostic(WarpBackendKind backend)
+    public void Closed_static_method_call_has_no_diagnostic(WarpBackendKind backend)
     {
         AssertBackend(backend);
         const string source = """
@@ -139,6 +139,68 @@ public sealed class WarpCLRAnalyzerTests
                 public static uint Transform([WarpInput] uint value) => Rotate(value);
 
                 private static uint Rotate(uint value) => (value << 1) | (value >> 31);
+            }
+            """;
+
+        AssertNoDiagnostics(source);
+    }
+
+    [TestMethod]
+    [FourBackends]
+    public void External_method_call_has_operation_diagnostic(WarpBackendKind backend)
+    {
+        AssertBackend(backend);
+        const string source = """
+            using System.Numerics;
+            using WarpCLR.CSharp;
+
+            public static class Kernels
+            {
+                [WarpEntryPoint]
+                public static uint Transform([WarpInput] uint value) =>
+                    BitOperations.RotateLeft(value, 1);
+            }
+            """;
+
+        AssertIds(source, "WCS1003");
+    }
+
+    [TestMethod]
+    [FourBackends]
+    public void Unsupported_operation_in_called_method_has_diagnostic(
+        WarpBackendKind backend)
+    {
+        AssertBackend(backend);
+        const string source = """
+            using WarpCLR.CSharp;
+
+            public static class Kernels
+            {
+                [WarpEntryPoint]
+                public static uint Transform([WarpInput] uint value) => Divide(value, 3u);
+
+                private static uint Divide(uint value, uint divisor) => value / divisor;
+            }
+            """;
+
+        AssertIds(source, "WCS1003");
+    }
+
+    [TestMethod]
+    [FourBackends]
+    public void Recursive_method_call_has_operation_diagnostic(WarpBackendKind backend)
+    {
+        AssertBackend(backend);
+        const string source = """
+            using WarpCLR.CSharp;
+
+            public static class Kernels
+            {
+                [WarpEntryPoint]
+                public static uint Transform([WarpInput] uint value) => Recurse(value);
+
+                private static uint Recurse(uint value) =>
+                    value == 0u ? 0u : Recurse(value - 1u);
             }
             """;
 

@@ -236,7 +236,10 @@ internal sealed class WarpCLRPackageFixture : IDisposable
                 [WarpEntryPoint]
                 public static uint Transform(
                     [WarpInput] uint value,
-                    [WarpScalar] uint scalar) => (value * 33u) + scalar;
+                    [WarpScalar] uint scalar) => Mix(value, scalar);
+
+                private static uint Mix(uint value, uint scalar) =>
+                    (value * 33u) + scalar;
 
                 [WarpEntryPoint]
                 public static uint Select(
@@ -370,7 +373,9 @@ internal sealed class WarpCLRPackageFixture : IDisposable
             root,
             "consumer-packages");
         startInfo.Environment["DOTNET_CLI_TELEMETRY_OPTOUT"] = "1";
+        startInfo.Environment["DOTNET_CLI_USE_MSBUILD_SERVER"] = "0";
         startInfo.Environment["DOTNET_NOLOGO"] = "1";
+        startInfo.Environment["MSBUILDDISABLENODEREUSE"] = "1";
         startInfo.Environment.Remove("WarpBuildRoot");
 
         using Process process = Process.Start(startInfo)

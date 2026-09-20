@@ -1,8 +1,6 @@
-using System.Buffers.Binary;
 using System.Reflection;
 using System.Reflection.Metadata;
 using System.Reflection.PortableExecutable;
-using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using WarpCLR.CSharp.Contracts;
@@ -84,11 +82,12 @@ internal static class WarpCLRAssemblyFinalizer
         }
 
         IReadOnlyList<WarpCLRManifestEntry> entries = ParseEntries(manifest);
+        IReadOnlyDictionary<string, string> graphHashes = verifier.ComputeGraphHashes(original);
         byte[] candidate = original.ToArray();
         bool changed = false;
         foreach (WarpCLRManifestEntry entry in entries)
         {
-            string actual = ComputeGraphHash(peReader, metadata, entry);
+            string actual = graphHashes[entry.Identity];
             if (string.Equals(entry.GraphHash, actual, StringComparison.Ordinal))
             {
                 continue;
@@ -235,91 +234,6 @@ internal static class WarpCLRAssemblyFinalizer
                 "WCSB1001",
                 $"The embedded manifest is invalid JSON. {exception.Message}");
         }
-    }
-
-    private static string ComputeGraphHash(
-        PEReader peReader,
-        MetadataReader metadata,
-        WarpCLRManifestEntry entry)
-    {
-        MethodDefinitionHandle methodHandle = FindMethod(metadata, entry);
-        MethodDefinition method = metadata.GetMethodDefinition(methodHandle);
-        if (method.RelativeVirtualAddress == 0)
-        {
-            throw Error(
-                "WCSB1001",
-                $"Entry point '{entry.Identity}' does not have a CIL body.");
-        }
-
-        MethodBodyBlock body = peReader.GetMethodBody(method.RelativeVirtualAddress);
-        byte[] il = body.GetILBytes()
-            ?? throw Error(
-                "WCSB1001",
-                $"Entry point '{entry.Identity}' does not contain CIL bytes.");
-        byte[] signature = metadata.GetBlobBytes(method.Signature);
-        byte[] localSignature = body.LocalSignature.IsNil
-            ? []
-            : metadata.GetBlobBytes(
-                metadata.GetStandaloneSignature(body.LocalSignature).Signature);
-
-        using IncrementalHash hash = IncrementalHash.CreateHash(
-            HashAlgorithmName.SHA256);
-        AppendField(hash, Encoding.UTF8.GetBytes(entry.Identity));
-        AppendField(hash, signature);
-        AppendField(hash, localSignature);
-        AppendField(hash, il);
-        return Convert.ToHexString(hash.GetHashAndReset());
-    }
-
-    private static MethodDefinitionHandle FindMethod(
-        MetadataReader metadata,
-        WarpCLRManifestEntry entry)
-    {
-        var candidates = new List<MethodDefinitionHandle>();
-        foreach (TypeDefinitionHandle typeHandle in metadata.TypeDefinitions)
-        {
-            TypeDefinition type = metadata.GetTypeDefinition(typeHandle);
-            string typeName = metadata.GetString(type.Name);
-            string typeNamespace = metadata.GetString(type.Namespace);
-            string identity = string.IsNullOrEmpty(typeNamespace)
-                ? typeName
-                : $"{typeNamespace}.{typeName}";
-            if (!string.Equals(identity, entry.Type, StringComparison.Ordinal))
-            {
-                continue;
-            }
-
-            foreach (MethodDefinitionHandle methodHandle in type.GetMethods())
-            {
-                MethodDefinition method = metadata.GetMethodDefinition(methodHandle);
-                if (string.Equals(
-                        metadata.GetString(method.Name),
-                        entry.Method,
-                        StringComparison.Ordinal))
-                {
-                    candidates.Add(methodHandle);
-                }
-            }
-        }
-
-        if (candidates.Count != 1)
-        {
-            throw Error(
-                "WCSB1001",
-                $"Manifest entry '{entry.Identity}' resolves to {candidates.Count} methods.");
-        }
-
-        return candidates[0];
-    }
-
-    private static void AppendField(
-        IncrementalHash hash,
-        ReadOnlySpan<byte> field)
-    {
-        Span<byte> length = stackalloc byte[sizeof(int)];
-        BinaryPrimitives.WriteInt32LittleEndian(length, field.Length);
-        hash.AppendData(length);
-        hash.AppendData(field);
     }
 
     private static void ReplaceUnique(
