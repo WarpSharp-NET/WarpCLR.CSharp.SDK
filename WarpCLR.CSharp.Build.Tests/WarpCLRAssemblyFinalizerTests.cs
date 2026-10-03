@@ -13,8 +13,11 @@ using WarpCLR.Verifier;
 namespace WarpCLR.CSharp.Build.Tests;
 
 [TestClass]
-public sealed class WarpCLRAssemblyFinalizerTests
+[global::System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1812:Avoid uninstantiated internal classes",
+    Justification = "MSTest creates this internal fixture through reflected discovery.")]
+internal sealed class WarpCLRAssemblyFinalizerTests
 {
+    private static readonly string[] ExpectedMultipleEntries = ["Demo.AlphaKernels.Add", "Demo.OmegaKernels.Xor"];
     private const string ValidMapSource = """
         using WarpCLR.CSharp;
 
@@ -34,7 +37,7 @@ public sealed class WarpCLRAssemblyFinalizerTests
 
     [TestMethod]
     [FourBackends]
-    public void Finalized_map_executes_on_selected_backend(WarpBackendKind backend)
+    public void FinalizedMapExecutesOnSelectedBackend(WarpBackendKind backend)
     {
         AssertBackend(backend);
         byte[] original = GenerateAssembly(
@@ -42,7 +45,7 @@ public sealed class WarpCLRAssemblyFinalizerTests
             ValidMapSource);
         WarpVerificationException initial = Assert.ThrowsExactly<WarpVerificationException>(
             () => new WarpModuleVerifier().Verify(original));
-        Assert.AreEqual("WRPCIL2004", initial.Code);
+        Assert.AreEqual("WRPCIL2004", initial.Code, StringComparer.Ordinal);
 
         WarpCLRAssemblyFinalization finalized = WarpCLRAssemblyFinalizer
             .FinalizeAssembly(original);
@@ -52,7 +55,7 @@ public sealed class WarpCLRAssemblyFinalizerTests
         Assert.HasCount(1, finalized.Module.Entries);
         Assert.AreEqual(
             "Demo.Kernels.Transform",
-            finalized.Module.Entries[0].Identity);
+            finalized.Module.Entries[0].Identity, StringComparer.Ordinal);
 
         WarpAotPackage package = WarpCLRCompiler.CompilePackage(
             finalized.AssemblyBytes);
@@ -89,7 +92,7 @@ public sealed class WarpCLRAssemblyFinalizerTests
 
     [TestMethod]
     [FourBackends]
-    public void Finalization_is_deterministic_and_idempotent(WarpBackendKind backend)
+    public void FinalizationIsDeterministicAndIdempotent(WarpBackendKind backend)
     {
         AssertBackend(backend);
         byte[] original = GenerateAssembly(
@@ -112,12 +115,12 @@ public sealed class WarpCLRAssemblyFinalizerTests
         Assert.IsFalse(repeated.Changed);
         Assert.AreEqual(
             first.Module!.AssemblyHash,
-            repeated.Module!.AssemblyHash);
+            repeated.Module!.AssemblyHash, StringComparer.Ordinal);
     }
 
     [TestMethod]
     [FourBackends]
-    public void Graph_hash_covers_transitive_called_method_bodies(
+    public void GraphHashCoversTransitiveCalledMethodBodies(
         WarpBackendKind backend)
     {
         AssertBackend(backend);
@@ -135,12 +138,12 @@ public sealed class WarpCLRAssemblyFinalizerTests
 
         Assert.AreNotEqual(
             first.Module!.Entries[0].GraphHash,
-            second.Module!.Entries[0].GraphHash);
+            second.Module!.Entries[0].GraphHash, StringComparer.Ordinal);
     }
 
     [TestMethod]
     [FourBackends]
-    public void Multiple_entries_are_finalized_and_execute(WarpBackendKind backend)
+    public void MultipleEntriesAreFinalizedAndExecute(WarpBackendKind backend)
     {
         AssertBackend(backend);
         const string source = """
@@ -174,13 +177,14 @@ public sealed class WarpCLRAssemblyFinalizerTests
         Assert.IsTrue(finalized.Changed);
         Assert.IsNotNull(finalized.Module);
         CollectionAssert.AreEqual(
-            new[]
-            {
-                "Demo.AlphaKernels.Add",
-                "Demo.OmegaKernels.Xor",
-            },
+            ExpectedMultipleEntries,
             finalized.Module.Entries.Select(entry => entry.Identity).ToArray());
 
+        AssertMultiEntryExecution(finalized, backend);
+    }
+
+    private static void AssertMultiEntryExecution(WarpCLRAssemblyFinalization finalized, WarpBackendKind backend)
+    {
         WarpAotPackage package = WarpCLRCompiler.CompilePackage(
             finalized.AssemblyBytes);
         string packageDirectory = CreateTemporaryDirectory();
@@ -217,7 +221,7 @@ public sealed class WarpCLRAssemblyFinalizerTests
 
     [TestMethod]
     [FourBackends]
-    public void Assembly_without_entries_is_not_changed(WarpBackendKind backend)
+    public void AssemblyWithoutEntriesIsNotChanged(WarpBackendKind backend)
     {
         AssertBackend(backend);
         byte[] original = GenerateAssembly(
@@ -235,7 +239,7 @@ public sealed class WarpCLRAssemblyFinalizerTests
 
     [TestMethod]
     [FourBackends]
-    public void Unknown_graph_hash_is_not_repaired(WarpBackendKind backend)
+    public void UnknownGraphHashIsNotRepaired(WarpBackendKind backend)
     {
         AssertBackend(backend);
         WarpCLRGeneratorTestResult generated = Generate(
@@ -244,20 +248,20 @@ public sealed class WarpCLRAssemblyFinalizerTests
         byte[] original = Emit(generated.OutputCompilation);
         string placeholder = ReadFirstGraphHash(generated);
         string stale = new('F', 64);
-        Assert.AreNotEqual(placeholder, stale);
+        Assert.AreNotEqual(placeholder, stale, StringComparer.Ordinal);
         byte[] tampered = ReplaceUnique(original, placeholder, stale);
         byte[] tamperedCopy = tampered.ToArray();
 
         WarpCLRBuildException exception = Assert.ThrowsExactly<WarpCLRBuildException>(
             () => WarpCLRAssemblyFinalizer.FinalizeAssembly(tampered));
 
-        Assert.AreEqual("WCSB1003", exception.Code);
+        Assert.AreEqual("WCSB1003", exception.Code, StringComparer.Ordinal);
         CollectionAssert.AreEqual(tamperedCopy, tampered);
     }
 
     [TestMethod]
     [FourBackends]
-    public void Strong_name_marker_is_rejected(WarpBackendKind backend)
+    public void StrongNameMarkerIsRejected(WarpBackendKind backend)
     {
         AssertBackend(backend);
         byte[] original = GenerateAssembly(
@@ -269,13 +273,13 @@ public sealed class WarpCLRAssemblyFinalizerTests
         WarpCLRBuildException exception = Assert.ThrowsExactly<WarpCLRBuildException>(
             () => WarpCLRAssemblyFinalizer.FinalizeAssembly(marked));
 
-        Assert.AreEqual("WCSB1002", exception.Code);
+        Assert.AreEqual("WCSB1002", exception.Code, StringComparer.Ordinal);
         CollectionAssert.AreEqual(markedCopy, marked);
     }
 
     [TestMethod]
     [FourBackends]
-    public void Invalid_CIL_is_rejected_after_hash_finalization(WarpBackendKind backend)
+    public void InvalidCILIsRejectedAfterHashFinalization(WarpBackendKind backend)
     {
         AssertBackend(backend);
         const string source = """
@@ -297,13 +301,13 @@ public sealed class WarpCLRAssemblyFinalizerTests
         WarpVerificationException exception = Assert.ThrowsExactly<WarpVerificationException>(
             () => WarpCLRAssemblyFinalizer.FinalizeAssembly(original));
 
-        Assert.AreEqual("WRPCIL1001", exception.Code);
+        Assert.AreEqual("WRPCIL1001", exception.Code, StringComparer.Ordinal);
         CollectionAssert.AreEqual(originalCopy, original);
     }
 
     [TestMethod]
     [FourBackends]
-    public void Failed_file_finalization_preserves_the_file(WarpBackendKind backend)
+    public void FailedFileFinalizationPreservesTheFile(WarpBackendKind backend)
     {
         AssertBackend(backend);
         const string source = """

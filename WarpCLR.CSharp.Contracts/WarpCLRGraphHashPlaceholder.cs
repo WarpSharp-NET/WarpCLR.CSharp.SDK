@@ -15,11 +15,15 @@ internal static class WarpCLRGraphHashPlaceholder
         }
         byte[] input = Encoding.UTF8.GetBytes(
             $"WarpCLR.CSharp.GraphPlaceholder/0.1\0{identity}");
+#if NET6_0_OR_GREATER
+        byte[] hash = SHA256.HashData(input);
+#else
         byte[] hash;
         using (SHA256 sha256 = SHA256.Create())
         {
             hash = sha256.ComputeHash(input);
         }
+#endif
 
         const string hex = "0123456789ABCDEF";
         var result = new char[hash.Length * 2];

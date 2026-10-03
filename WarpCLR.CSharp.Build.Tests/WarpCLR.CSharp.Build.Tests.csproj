@@ -1,18 +1,23 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.6.0" />
-    <PackageReference Include="MSTest" Version="4.0.2" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+    <PackageReference Include="MSTest" />
+    <PackageReference Include="MSTest.Analyzers" PrivateAssets="all" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="..\WarpCLR.CSharp.Testing\FourBackendsAttribute.cs" Link="Testing\FourBackendsAttribute.cs" />
     <Compile Include="..\WarpCLR.CSharp.Testing\RoslynCompilationFactory.cs" Link="Testing\RoslynCompilationFactory.cs" />
     <Compile Include="..\WarpCLR.CSharp.Testing\WarpCLRGeneratorTestHarness.cs" Link="Testing\WarpCLRGeneratorTestHarness.cs" />
+    <Compile Include="..\WarpCLR.CSharp.Testing\WarpCLRGeneratorTestResult.cs" Link="Testing\WarpCLRGeneratorTestResult.cs" />
+    <Compile Include="..\WarpCLR.CSharp.Testing\TestCollectionAssertions.cs" Link="Testing\TestCollectionAssertions.cs" />
     <ProjectReference Include="..\WarpCLR.CSharp\WarpCLR.CSharp.csproj" />
     <ProjectReference Include="..\WarpCLR.CSharp.Build\WarpCLR.CSharp.Build.csproj" />
     <ProjectReference Include="..\WarpCLR.CSharp.Generators\WarpCLR.CSharp.Generators.csproj" />
+    <ProjectReference Include="..\WarpCLR.CSharp.Analyzers\WarpCLR.CSharp.Analyzers.csproj" />
   </ItemGroup>
   <ItemGroup>
     <Using Include="Microsoft.VisualStudio.TestTools.UnitTesting" />

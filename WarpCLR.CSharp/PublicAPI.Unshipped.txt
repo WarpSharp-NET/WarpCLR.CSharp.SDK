@@ -1,0 +1,83 @@
+#nullable enable
+override WarpCLR.CSharp.WarpMapEntry.GetHashCode() -> int
+override WarpCLR.CSharp.WarpReductionEntry.GetHashCode() -> int
+static WarpCLR.CSharp.WarpCLRCompiler.CompileModule(string! assemblyPath) -> WarpCLR.Sdk.WarpModuleCompilation!
+static WarpCLR.CSharp.WarpCLRCompiler.CompileModule(System.ReadOnlyMemory<byte> assemblyBytes) -> WarpCLR.Sdk.WarpModuleCompilation!
+static WarpCLR.CSharp.WarpCLRCompiler.CompilePackage(string! assemblyPath) -> WarpCLR.Sdk.WarpAotPackage!
+static WarpCLR.CSharp.WarpCLRCompiler.CompilePackage(System.ReadOnlyMemory<byte> assemblyBytes) -> WarpCLR.Sdk.WarpAotPackage!
+static WarpCLR.CSharp.WarpCLRProgram.Load(string! assemblyPath, string! packageDirectory) -> WarpCLR.CSharp.WarpCLRProgram!
+static WarpCLR.CSharp.WarpCLRProgram.Load(System.ReadOnlyMemory<byte> assemblyBytes, string! packageDirectory) -> WarpCLR.CSharp.WarpCLRProgram!
+static WarpCLR.CSharp.WarpCLRProgram.LoadTrusted(System.ReadOnlyMemory<byte> assemblyBytes, WarpCLR.Runtime.Host.WarpModuleTrust! trust) -> WarpCLR.CSharp.WarpCLRProgram!
+static WarpCLR.CSharp.WarpMapEntry.operator !=(WarpCLR.CSharp.WarpMapEntry left, WarpCLR.CSharp.WarpMapEntry right) -> bool
+static WarpCLR.CSharp.WarpMapEntry.operator ==(WarpCLR.CSharp.WarpMapEntry left, WarpCLR.CSharp.WarpMapEntry right) -> bool
+static WarpCLR.CSharp.WarpReductionEntry.operator !=(WarpCLR.CSharp.WarpReductionEntry left, WarpCLR.CSharp.WarpReductionEntry right) -> bool
+static WarpCLR.CSharp.WarpReductionEntry.operator ==(WarpCLR.CSharp.WarpReductionEntry left, WarpCLR.CSharp.WarpReductionEntry right) -> bool
+static WarpCLR.CSharp.WarpUInt32Buffer.From(params uint[]! values) -> WarpCLR.CSharp.WarpUInt32Buffer!
+WarpCLR.CSharp.WarpCLRCompiler
+WarpCLR.CSharp.WarpCLRProgram
+WarpCLR.CSharp.WarpCLRProgram.AssemblyHash.get -> string!
+WarpCLR.CSharp.WarpCLRProgram.CreateDevelopmentSession(WarpCLR.IR.WarpBackendKind backend) -> WarpCLR.CSharp.WarpCLRSession!
+WarpCLR.CSharp.WarpCLRProgram.CreateRuntimeSession(WarpCLR.IR.WarpBackendKind backend, WarpCLR.Runtime.Host.WarpRuntimeOptions? options = null, WarpCLR.Runtime.Host.WarpJitCache? jitCache = null) -> WarpCLR.CSharp.WarpCLRRuntimeSession!
+WarpCLR.CSharp.WarpCLRProgram.EntryIdentities.get -> System.Collections.Generic.IReadOnlyList<string!>!
+WarpCLR.CSharp.WarpCLRProgram.ManifestHash.get -> string!
+WarpCLR.CSharp.WarpCLRRuntimeSession
+WarpCLR.CSharp.WarpCLRRuntimeSession.Backend.get -> WarpCLR.IR.WarpBackendKind
+WarpCLR.CSharp.WarpCLRRuntimeSession.DispatchAsync(WarpCLR.CSharp.WarpMapEntry entry, System.Collections.Generic.IReadOnlyList<WarpCLR.CSharp.WarpUInt32Buffer!>! inputs, System.Collections.Generic.IReadOnlyList<uint>? scalarArguments = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<WarpCLR.CSharp.WarpUInt32Buffer!>!
+WarpCLR.CSharp.WarpCLRRuntimeSession.DisposeAsync() -> System.Threading.Tasks.ValueTask
+WarpCLR.CSharp.WarpCLRRuntimeSession.JitStatistics.get -> WarpCLR.Runtime.Host.WarpJitCacheStatistics
+WarpCLR.CSharp.WarpCLRRuntimeSession.ReduceAsync(WarpCLR.CSharp.WarpReductionEntry entry, System.Collections.Generic.IReadOnlyList<WarpCLR.CSharp.WarpUInt32Buffer!>! inputs, System.Collections.Generic.IReadOnlyList<uint>? scalarArguments = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<uint>!
+WarpCLR.CSharp.WarpCLRRuntimeSession.State.get -> WarpCLR.Runtime.Host.WarpRuntimeContextState
+WarpCLR.CSharp.WarpCLRSession
+WarpCLR.CSharp.WarpCLRSession.Backend.get -> WarpCLR.IR.WarpBackendKind
+WarpCLR.CSharp.WarpCLRSession.Dispatch(WarpCLR.CSharp.WarpMapEntry entry, System.Collections.Generic.IReadOnlyList<WarpCLR.CSharp.WarpUInt32Buffer!>! inputs, System.Collections.Generic.IReadOnlyList<uint>? scalarArguments = null) -> WarpCLR.CSharp.WarpUInt32Buffer!
+WarpCLR.CSharp.WarpCLRSession.Mode.get -> WarpCLR.Runtime.Host.WarpDevelopmentExecutionMode
+WarpCLR.CSharp.WarpCLRSession.Reduce(WarpCLR.CSharp.WarpReductionEntry entry, System.Collections.Generic.IReadOnlyList<WarpCLR.CSharp.WarpUInt32Buffer!>! inputs, System.Collections.Generic.IReadOnlyList<uint>? scalarArguments = null) -> uint
+WarpCLR.CSharp.WarpEntryPointAttribute
+WarpCLR.CSharp.WarpEntryPointAttribute.Execution.get -> WarpCLR.CSharp.WarpExecution
+WarpCLR.CSharp.WarpEntryPointAttribute.WarpEntryPointAttribute(WarpCLR.CSharp.WarpExecution execution = WarpCLR.CSharp.WarpExecution.Map) -> void
+WarpCLR.CSharp.WarpExecution
+WarpCLR.CSharp.WarpExecution.Map = 0 -> WarpCLR.CSharp.WarpExecution
+WarpCLR.CSharp.WarpExecution.ReduceMaximum = 3 -> WarpCLR.CSharp.WarpExecution
+WarpCLR.CSharp.WarpExecution.ReduceMinimum = 2 -> WarpCLR.CSharp.WarpExecution
+WarpCLR.CSharp.WarpExecution.ReduceWrappingSum = 1 -> WarpCLR.CSharp.WarpExecution
+WarpCLR.CSharp.WarpInputAttribute
+WarpCLR.CSharp.WarpInputAttribute.WarpInputAttribute() -> void
+WarpCLR.CSharp.WarpMapEntry
+WarpCLR.CSharp.WarpMapEntry.Equals(WarpCLR.CSharp.WarpMapEntry other) -> bool
+WarpCLR.CSharp.WarpMapEntry.Identity.get -> string!
+WarpCLR.CSharp.WarpMapEntry.InputBufferCount.get -> int
+WarpCLR.CSharp.WarpMapEntry.ScalarArgumentCount.get -> int
+WarpCLR.CSharp.WarpMapEntry.WarpMapEntry() -> void
+WarpCLR.CSharp.WarpMapEntry.WarpMapEntry(string! identity, int inputBufferCount, int scalarArgumentCount) -> void
+WarpCLR.CSharp.WarpReductionEntry
+WarpCLR.CSharp.WarpReductionEntry.Equals(WarpCLR.CSharp.WarpReductionEntry other) -> bool
+WarpCLR.CSharp.WarpReductionEntry.Execution.get -> WarpCLR.CSharp.WarpExecution
+WarpCLR.CSharp.WarpReductionEntry.Identity.get -> string!
+WarpCLR.CSharp.WarpReductionEntry.InputBufferCount.get -> int
+WarpCLR.CSharp.WarpReductionEntry.ScalarArgumentCount.get -> int
+WarpCLR.CSharp.WarpReductionEntry.WarpReductionEntry() -> void
+WarpCLR.CSharp.WarpReductionEntry.WarpReductionEntry(string! identity, int inputBufferCount, int scalarArgumentCount, WarpCLR.CSharp.WarpExecution execution) -> void
+WarpCLR.CSharp.WarpScalarAttribute
+WarpCLR.CSharp.WarpScalarAttribute.WarpScalarAttribute() -> void
+WarpCLR.CSharp.WarpUInt32Buffer
+WarpCLR.CSharp.WarpUInt32Buffer.Count.get -> int
+WarpCLR.CSharp.WarpUInt32Buffer.GetEnumerator() -> System.Collections.Generic.IEnumerator<uint>!
+WarpCLR.CSharp.WarpUInt32Buffer.EnumerateValues() -> WarpCLR.CSharp.WarpUInt32BufferEnumerator
+WarpCLR.CSharp.WarpUInt32BufferEnumerator.GetEnumerator() -> WarpCLR.CSharp.WarpUInt32BufferEnumerator
+WarpCLR.CSharp.WarpUInt32BufferEnumerator
+WarpCLR.CSharp.WarpUInt32BufferEnumerator.Current.get -> uint
+WarpCLR.CSharp.WarpUInt32BufferEnumerator.Dispose() -> void
+WarpCLR.CSharp.WarpUInt32BufferEnumerator.MoveNext() -> bool
+WarpCLR.CSharp.WarpUInt32BufferEnumerator.WarpUInt32BufferEnumerator() -> void
+WarpCLR.CSharp.WarpUInt32Buffer.Length.get -> int
+WarpCLR.CSharp.WarpUInt32Buffer.ReadOnlySpan.get -> System.ReadOnlySpan<uint>
+WarpCLR.CSharp.WarpUInt32Buffer.Span.get -> System.Span<uint>
+WarpCLR.CSharp.WarpUInt32Buffer.this[int index].get -> uint
+WarpCLR.CSharp.WarpUInt32Buffer.this[int index].set -> void
+WarpCLR.CSharp.WarpUInt32Buffer.ToArray() -> uint[]!
+WarpCLR.CSharp.WarpUInt32Buffer.WarpUInt32Buffer(int length) -> void
+WarpCLR.CSharp.WarpUInt32Buffer.WarpUInt32Buffer(System.ReadOnlySpan<uint> values) -> void
+~override WarpCLR.CSharp.WarpMapEntry.Equals(object obj) -> bool
+~override WarpCLR.CSharp.WarpMapEntry.ToString() -> string
+~override WarpCLR.CSharp.WarpReductionEntry.Equals(object obj) -> bool
+~override WarpCLR.CSharp.WarpReductionEntry.ToString() -> string

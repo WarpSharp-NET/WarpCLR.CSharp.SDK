@@ -18,9 +18,3 @@ public sealed class WarpEntryPointAttribute : Attribute
 
     public WarpExecution Execution { get; }
 }
-
-[AttributeUsage(AttributeTargets.Parameter, AllowMultiple = false, Inherited = false)]
-public sealed class WarpInputAttribute : Attribute;
-
-[AttributeUsage(AttributeTargets.Parameter, AllowMultiple = false, Inherited = false)]
-public sealed class WarpScalarAttribute : Attribute;

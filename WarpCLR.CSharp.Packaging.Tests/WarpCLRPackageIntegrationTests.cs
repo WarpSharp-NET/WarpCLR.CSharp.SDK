@@ -6,29 +6,54 @@ using WarpCLR.Verifier;
 namespace WarpCLR.CSharp.Packaging.Tests;
 
 [TestClass]
-public sealed class WarpCLRPackageIntegrationTests
+[global::System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1812:Avoid uninstantiated internal classes",
+    Justification = "MSTest creates this internal fixture through reflected discovery.")]
+internal sealed class WarpCLRPackageIntegrationTests
 {
-    private static readonly Lazy<WarpCLRPackageFixture> Fixture = new(
-        WarpCLRPackageFixture.Create,
-        LazyThreadSafetyMode.ExecutionAndPublication);
+    private static readonly string[] ExpectedEntries =
+    [
+        "Consumer.Kernels.Maximum",
+        "Consumer.Kernels.Minimum",
+        "Consumer.Kernels.Select",
+        "Consumer.Kernels.Sum",
+        "Consumer.Kernels.Transform",
+    ];
+
+    private static readonly string[] ExpectedSdkAssets =
+    [
+        "analyzers/dotnet/cs/WarpCLR.CSharp.Analyzers.dll",
+        "analyzers/dotnet/cs/WarpCLR.CSharp.Generators.dll",
+        "build/WarpCLR.CSharp.targets",
+        "lib/net10.0/WarpCLR.CSharp.dll",
+        "tools/net10.0/any/WarpCLR.CSharp.Build.deps.json",
+        "tools/net10.0/any/WarpCLR.CSharp.Build.dll",
+        "tools/net10.0/any/WarpCLR.CSharp.Build.runtimeconfig.json",
+        "tools/net10.0/any/WarpCLR.IR.dll",
+        "tools/net10.0/any/WarpCLR.Verifier.dll",
+    ];
+
+    private static WarpCLRPackageFixture? sharedFixture;
+
+    [ClassInitialize]
+    public static async Task InitializeAsync(TestContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        sharedFixture = await WarpCLRPackageFixture.CreateAsync().ConfigureAwait(false);
+    }
+
+    private static WarpCLRPackageFixture Fixture => sharedFixture
+        ?? throw new InvalidOperationException("The packaging fixture was not initialized.");
 
     [TestMethod]
     [FourBackends]
-    public void Packaged_sdk_executes_the_complete_profile(WarpBackendKind backend)
+    public void PackagedSdkExecutesTheCompleteProfile(WarpBackendKind backend)
     {
         AssertBackend(backend);
-        WarpCLRPackageFixture fixture = Fixture.Value;
+        WarpCLRPackageFixture fixture = Fixture;
         byte[] assembly = fixture.ConsumerAssembly;
         WarpVerifiedModule verified = new WarpModuleVerifier().Verify(assembly);
         CollectionAssert.AreEqual(
-            new[]
-            {
-                "Consumer.Kernels.Maximum",
-                "Consumer.Kernels.Minimum",
-                "Consumer.Kernels.Select",
-                "Consumer.Kernels.Sum",
-                "Consumer.Kernels.Transform",
-            },
+            ExpectedEntries,
             verified.Entries.Select(entry => entry.Identity).ToArray());
 
         WarpAotPackage package = WarpCLRCompiler.CompilePackage(assembly);
@@ -69,6 +94,11 @@ public sealed class WarpCLRPackageIntegrationTests
                 .ToArray(),
             selected.ToArray());
 
+        AssertReductionResults(session, input);
+    }
+
+    private static void AssertReductionResults(WarpCLRSession session, WarpUInt32Buffer input)
+    {
         Assert.AreEqual(
             WrappingSum(input),
             session.Reduce(
@@ -100,45 +130,32 @@ public sealed class WarpCLRPackageIntegrationTests
 
     [TestMethod]
     [FourBackends]
-    public void Packaged_analyzer_rejects_nonportable_operation(
+    public void PackagedAnalyzerRejectsNonportableOperation(
         WarpBackendKind backend)
     {
         AssertBackend(backend);
-        StringAssert.Contains(Fixture.Value.InvalidBuildOutput, "WCS1003");
+        StringAssert.Contains(Fixture.InvalidBuildOutput, "WCS1003", StringComparison.Ordinal);
     }
 
     [TestMethod]
     [FourBackends]
-    public void Package_contains_only_the_required_sdk_assets(
+    public void PackageContainsOnlyTheRequiredSdkAssets(
         WarpBackendKind backend)
     {
         AssertBackend(backend);
         CollectionAssert.AreEqual(
-            new[]
-            {
-                "analyzers/dotnet/cs/WarpCLR.CSharp.Analyzers.dll",
-                "analyzers/dotnet/cs/WarpCLR.CSharp.Generators.dll",
-                "build/WarpCLR.CSharp.targets",
-                "lib/net10.0/WarpCLR.CSharp.dll",
-                "tools/net10.0/any/WarpCLR.CSharp.Build.deps.json",
-                "tools/net10.0/any/WarpCLR.CSharp.Build.dll",
-                "tools/net10.0/any/WarpCLR.CSharp.Build.runtimeconfig.json",
-                "tools/net10.0/any/WarpCLR.IR.dll",
-                "tools/net10.0/any/WarpCLR.Verifier.dll",
-            },
-            Fixture.Value.PackageAssets.ToArray());
+            ExpectedSdkAssets,
+            Fixture.PackageAssets.ToArray());
         StringAssert.Contains(
-            Fixture.Value.IncrementalBuildOutput,
-            "WarpCLR verified the finalized assembly.");
+            Fixture.IncrementalBuildOutput,
+            "WarpCLR verified the finalized assembly.", StringComparison.Ordinal);
     }
 
     [ClassCleanup]
     public static void Cleanup()
     {
-        if (Fixture.IsValueCreated)
-        {
-            Fixture.Value.Dispose();
-        }
+        sharedFixture?.Dispose();
+        sharedFixture = null;
     }
 
     private static uint WrappingSum(IEnumerable<uint> values)

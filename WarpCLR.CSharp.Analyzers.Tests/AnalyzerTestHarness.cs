@@ -7,7 +7,7 @@ namespace WarpCLR.CSharp.Analyzers.Tests;
 
 internal static class AnalyzerTestHarness
 {
-    public static ImmutableArray<Diagnostic> Analyze(string source)
+    public static async Task<ImmutableArray<Diagnostic>> AnalyzeAsync(string source)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(source);
         Compilation compilation = RoslynCompilationFactory.Create(
@@ -24,11 +24,11 @@ internal static class AnalyzerTestHarness
         }
 
         var analyzer = new WarpCLRAnalyzer();
-        return compilation
+        ImmutableArray<Diagnostic> diagnostics = await compilation
             .WithAnalyzers(ImmutableArray.Create<DiagnosticAnalyzer>(analyzer))
             .GetAnalyzerDiagnosticsAsync()
-            .GetAwaiter()
-            .GetResult()
+            .ConfigureAwait(false);
+        return diagnostics
             .OrderBy(diagnostic => diagnostic.Location.SourceSpan.Start)
             .ThenBy(diagnostic => diagnostic.Id, StringComparer.Ordinal)
             .ToImmutableArray();

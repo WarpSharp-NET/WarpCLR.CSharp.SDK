@@ -77,11 +77,19 @@ internal static class WarpCLRAssemblyFinalizer
                 changed: false);
         }
         catch (WarpVerificationException exception)
-            when (exception.Code == "WRPCIL2004")
+            when (string.Equals(exception.Code, "WRPCIL2004", StringComparison.Ordinal))
         {
         }
 
-        IReadOnlyList<WarpCLRManifestEntry> entries = ParseEntries(manifest);
+        return ReplaceGraphPlaceholders(original, manifest, verifier);
+    }
+
+    private static WarpCLRAssemblyFinalization ReplaceGraphPlaceholders(
+        byte[] original,
+        string manifest,
+        WarpModuleVerifier verifier)
+    {
+        WarpCLRManifestEntry[] entries = ParseEntries(manifest);
         IReadOnlyDictionary<string, string> graphHashes = verifier.ComputeGraphHashes(original);
         byte[] candidate = original.ToArray();
         bool changed = false;
@@ -213,7 +221,7 @@ internal static class WarpCLRAssemblyFinalizer
         }
     }
 
-    private static IReadOnlyList<WarpCLRManifestEntry> ParseEntries(string manifest)
+    private static WarpCLRManifestEntry[] ParseEntries(string manifest)
     {
         try
         {

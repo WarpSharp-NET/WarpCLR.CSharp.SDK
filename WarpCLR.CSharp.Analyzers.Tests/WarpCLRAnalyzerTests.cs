@@ -4,11 +4,13 @@ using WarpCLR.IR;
 namespace WarpCLR.CSharp.Analyzers.Tests;
 
 [TestClass]
-public sealed class WarpCLRAnalyzerTests
+[global::System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1812:Avoid uninstantiated internal classes",
+    Justification = "MSTest creates this internal fixture through reflected discovery.")]
+internal sealed class WarpCLRAnalyzerTests
 {
     [TestMethod]
     [FourBackends]
-    public void Valid_unsigned_map_has_no_diagnostic(WarpBackendKind backend)
+    public async Task ValidUnsignedMapHasNoDiagnostic(WarpBackendKind backend)
     {
         AssertBackend(backend);
         const string source = """
@@ -27,12 +29,12 @@ public sealed class WarpCLRAnalyzerTests
             }
             """;
 
-        AssertNoDiagnostics(source);
+        await AssertNoDiagnosticsAsync(source).ConfigureAwait(false);
     }
 
     [TestMethod]
     [FourBackends]
-    public void Instance_entry_has_declaration_diagnostic(WarpBackendKind backend)
+    public async Task InstanceEntryHasDeclarationDiagnostic(WarpBackendKind backend)
     {
         AssertBackend(backend);
         const string source = """
@@ -45,12 +47,12 @@ public sealed class WarpCLRAnalyzerTests
             }
             """;
 
-        AssertIds(source, "WCS1001");
+        await AssertIdsAsync(source, "WCS1001").ConfigureAwait(false);
     }
 
     [TestMethod]
     [FourBackends]
-    public void Scalar_before_input_has_role_diagnostic(WarpBackendKind backend)
+    public async Task ScalarBeforeInputHasRoleDiagnostic(WarpBackendKind backend)
     {
         AssertBackend(backend);
         const string source = """
@@ -65,12 +67,12 @@ public sealed class WarpCLRAnalyzerTests
             }
             """;
 
-        AssertIds(source, "WCS1002");
+        await AssertIdsAsync(source, "WCS1002").ConfigureAwait(false);
     }
 
     [TestMethod]
     [FourBackends]
-    public void By_reference_parameter_has_declaration_diagnostic(WarpBackendKind backend)
+    public async Task ByReferenceParameterHasDeclarationDiagnostic(WarpBackendKind backend)
     {
         AssertBackend(backend);
         const string source = """
@@ -83,12 +85,12 @@ public sealed class WarpCLRAnalyzerTests
             }
             """;
 
-        AssertIds(source, "WCS1001");
+        await AssertIdsAsync(source, "WCS1001").ConfigureAwait(false);
     }
 
     [TestMethod]
     [FourBackends]
-    public void Division_has_operation_diagnostic(WarpBackendKind backend)
+    public async Task DivisionHasOperationDiagnostic(WarpBackendKind backend)
     {
         AssertBackend(backend);
         const string source = """
@@ -103,12 +105,12 @@ public sealed class WarpCLRAnalyzerTests
             }
             """;
 
-        AssertIds(source, "WCS1003");
+        await AssertIdsAsync(source, "WCS1003").ConfigureAwait(false);
     }
 
     [TestMethod]
     [FourBackends]
-    public void Conditional_has_no_diagnostic(WarpBackendKind backend)
+    public async Task ConditionalHasNoDiagnostic(WarpBackendKind backend)
     {
         AssertBackend(backend);
         const string source = """
@@ -122,12 +124,12 @@ public sealed class WarpCLRAnalyzerTests
             }
             """;
 
-        AssertNoDiagnostics(source);
+        await AssertNoDiagnosticsAsync(source).ConfigureAwait(false);
     }
 
     [TestMethod]
     [FourBackends]
-    public void Closed_static_method_call_has_no_diagnostic(WarpBackendKind backend)
+    public async Task ClosedStaticMethodCallHasNoDiagnostic(WarpBackendKind backend)
     {
         AssertBackend(backend);
         const string source = """
@@ -142,12 +144,12 @@ public sealed class WarpCLRAnalyzerTests
             }
             """;
 
-        AssertNoDiagnostics(source);
+        await AssertNoDiagnosticsAsync(source).ConfigureAwait(false);
     }
 
     [TestMethod]
     [FourBackends]
-    public void External_method_call_has_operation_diagnostic(WarpBackendKind backend)
+    public async Task ExternalMethodCallHasOperationDiagnostic(WarpBackendKind backend)
     {
         AssertBackend(backend);
         const string source = """
@@ -162,12 +164,12 @@ public sealed class WarpCLRAnalyzerTests
             }
             """;
 
-        AssertIds(source, "WCS1003");
+        await AssertIdsAsync(source, "WCS1003").ConfigureAwait(false);
     }
 
     [TestMethod]
     [FourBackends]
-    public void Unsupported_operation_in_called_method_has_diagnostic(
+    public async Task UnsupportedOperationInCalledMethodHasDiagnostic(
         WarpBackendKind backend)
     {
         AssertBackend(backend);
@@ -183,12 +185,12 @@ public sealed class WarpCLRAnalyzerTests
             }
             """;
 
-        AssertIds(source, "WCS1003");
+        await AssertIdsAsync(source, "WCS1003").ConfigureAwait(false);
     }
 
     [TestMethod]
     [FourBackends]
-    public void Recursive_method_call_has_operation_diagnostic(WarpBackendKind backend)
+    public async Task RecursiveMethodCallHasOperationDiagnostic(WarpBackendKind backend)
     {
         AssertBackend(backend);
         const string source = """
@@ -204,12 +206,12 @@ public sealed class WarpCLRAnalyzerTests
             }
             """;
 
-        AssertIds(source, "WCS1003");
+        await AssertIdsAsync(source, "WCS1003").ConfigureAwait(false);
     }
 
     [TestMethod]
     [FourBackends]
-    public void Checked_arithmetic_has_operation_diagnostic(WarpBackendKind backend)
+    public async Task CheckedArithmeticHasOperationDiagnostic(WarpBackendKind backend)
     {
         AssertBackend(backend);
         const string source = """
@@ -222,12 +224,12 @@ public sealed class WarpCLRAnalyzerTests
             }
             """;
 
-        AssertIds(source, "WCS1003");
+        await AssertIdsAsync(source, "WCS1003").ConfigureAwait(false);
     }
 
     [TestMethod]
     [FourBackends]
-    public void Entry_allocation_has_allocation_diagnostic(WarpBackendKind backend)
+    public async Task EntryAllocationHasAllocationDiagnostic(WarpBackendKind backend)
     {
         AssertBackend(backend);
         const string source = """
@@ -244,12 +246,12 @@ public sealed class WarpCLRAnalyzerTests
             }
             """;
 
-        AssertContainsId(source, "WCS1004");
+        await AssertContainsIdAsync(source, "WCS1004").ConfigureAwait(false);
     }
 
     [TestMethod]
     [FourBackends]
-    public void Signed_local_has_operation_diagnostic(WarpBackendKind backend)
+    public async Task SignedLocalHasOperationDiagnostic(WarpBackendKind backend)
     {
         AssertBackend(backend);
         const string source = """
@@ -266,12 +268,12 @@ public sealed class WarpCLRAnalyzerTests
             }
             """;
 
-        AssertContainsId(source, "WCS1003");
+        await AssertContainsIdAsync(source, "WCS1003").ConfigureAwait(false);
     }
 
     [TestMethod]
     [FourBackends]
-    public void Ordinary_host_allocation_has_no_diagnostic(WarpBackendKind backend)
+    public async Task OrdinaryHostAllocationHasNoDiagnostic(WarpBackendKind backend)
     {
         AssertBackend(backend);
         const string source = """
@@ -283,28 +285,128 @@ public sealed class WarpCLRAnalyzerTests
             }
             """;
 
-        AssertNoDiagnostics(source);
+        await AssertNoDiagnosticsAsync(source).ConfigureAwait(false);
     }
 
-    private static void AssertIds(string source, params string[] expected)
+    [TestMethod]
+    [FourBackends]
+    public async Task PortableLoopsArgumentMutationAndBranchesHaveNoDiagnostic(WarpBackendKind backend)
     {
-        Diagnostic[] diagnostics = AnalyzerTestHarness.Analyze(source).ToArray();
+        AssertBackend(backend);
+        const string source = """
+            using WarpCLR.CSharp;
+            public static class Kernels
+            {
+                [WarpEntryPoint]
+                public static uint Control([WarpInput] uint value)
+                {
+                    uint result = 0;
+                    value &= 15u;
+                    while (value != 0)
+                    {
+                        value--;
+                        if (value == 9) continue;
+                        if (value == 2) break;
+                        result += value;
+                    }
+                    do { ++result; } while (result < 3);
+                    for (uint index = 0; index < 4; index++) { result ^= index; }
+                    value = value + result;
+                Again:
+                    if (value > 64) { value -= 64; goto Again; }
+                    return value;
+                }
+            }
+            """;
+        await AssertNoDiagnosticsAsync(source).ConfigureAwait(false);
+    }
+
+    [TestMethod]
+    [FourBackends]
+    public async Task BooleanLocalControlUsesTheExistingPortableCILSubset(WarpBackendKind backend)
+    {
+        AssertBackend(backend);
+        const string source = """
+            using WarpCLR.CSharp;
+            public static class Kernels
+            {
+                [WarpEntryPoint]
+                public static uint Control([WarpInput] uint value)
+                {
+                    bool active = value != 0;
+                    bool alternate = false;
+                    while (active && !alternate)
+                    {
+                        value--;
+                        active = value != 0;
+                        alternate ^= value == 4;
+                    }
+                    bool selected = active ? alternate : !alternate;
+                    return (selected || (active & alternate)) ? value + 1u : value;
+                }
+            }
+            """;
+        await AssertNoDiagnosticsAsync(source).ConfigureAwait(false);
+    }
+
+    [TestMethod]
+    [FourBackends]
+    public async Task CheckedIncrementIsRejectedEvenInsideAnAdmittedLoop(WarpBackendKind backend)
+    {
+        AssertBackend(backend);
+        const string source = """
+            using WarpCLR.CSharp;
+            public static class Kernels
+            {
+                [WarpEntryPoint]
+                public static uint Control([WarpInput] uint value)
+                {
+                    while (value != 0) { checked { value++; } }
+                    return value;
+                }
+            }
+            """;
+        await AssertContainsIdAsync(source, "WCS1003").ConfigureAwait(false);
+    }
+
+    [TestMethod]
+    [FourBackends]
+    public async Task SignedLoopStateIsStillRejectedForEveryBackend(WarpBackendKind backend)
+    {
+        AssertBackend(backend);
+        const string source = """
+            using WarpCLR.CSharp;
+            public static class Kernels
+            {
+                [WarpEntryPoint]
+                public static uint Control([WarpInput] uint value)
+                {
+                    for (int index = 0; index < 4; index++) { value += (uint)index; }
+                    return value;
+                }
+            }
+            """;
+        await AssertContainsIdAsync(source, "WCS1003").ConfigureAwait(false);
+    }
+
+    private static async Task AssertIdsAsync(string source, params string[] expected)
+    {
+        Diagnostic[] diagnostics = (await AnalyzerTestHarness.AnalyzeAsync(source).ConfigureAwait(false)).ToArray();
         string[] actual = diagnostics
             .Select(diagnostic => diagnostic.Id)
             .ToArray();
         CollectionAssert.AreEqual(expected, actual, Describe(diagnostics));
     }
 
-    private static void AssertContainsId(string source, string expected)
+    private static async Task AssertContainsIdAsync(string source, string expected)
     {
-        Assert.IsTrue(
-            AnalyzerTestHarness.Analyze(source)
-                .Any(diagnostic => diagnostic.Id == expected));
+        Diagnostic[] diagnostics = (await AnalyzerTestHarness.AnalyzeAsync(source).ConfigureAwait(false)).ToArray();
+        Assert.IsTrue(diagnostics.Any(diagnostic => string.Equals(diagnostic.Id, expected, StringComparison.Ordinal)));
     }
 
-    private static void AssertNoDiagnostics(string source)
+    private static async Task AssertNoDiagnosticsAsync(string source)
     {
-        Diagnostic[] diagnostics = AnalyzerTestHarness.Analyze(source).ToArray();
+        Diagnostic[] diagnostics = (await AnalyzerTestHarness.AnalyzeAsync(source).ConfigureAwait(false)).ToArray();
         Assert.IsEmpty(diagnostics, Describe(diagnostics));
     }
 
@@ -312,7 +414,7 @@ public sealed class WarpCLRAnalyzerTests
         string.Join(
             Environment.NewLine,
             diagnostics.Select(
-                diagnostic => $"{diagnostic.Id}: {diagnostic.GetMessage()}"));
+                diagnostic => $"{diagnostic.Id}: {diagnostic.GetMessage(System.Globalization.CultureInfo.InvariantCulture)}"));
 
     private static void AssertBackend(WarpBackendKind backend) =>
         Assert.IsTrue(WarpBackendCatalog.Required.Contains(backend));

@@ -1,0 +1,5 @@
+#nullable enable
+override WarpCLR.CSharp.Analyzers.WarpCLRAnalyzer.Initialize(Microsoft.CodeAnalysis.Diagnostics.AnalysisContext! context) -> void
+override WarpCLR.CSharp.Analyzers.WarpCLRAnalyzer.SupportedDiagnostics.get -> System.Collections.Immutable.ImmutableArray<Microsoft.CodeAnalysis.DiagnosticDescriptor!>
+WarpCLR.CSharp.Analyzers.WarpCLRAnalyzer
+WarpCLR.CSharp.Analyzers.WarpCLRAnalyzer.WarpCLRAnalyzer() -> void

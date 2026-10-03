@@ -1,0 +1,4 @@
+#nullable enable
+WarpCLR.CSharp.Generators.WarpCLRGenerator
+WarpCLR.CSharp.Generators.WarpCLRGenerator.Initialize(Microsoft.CodeAnalysis.IncrementalGeneratorInitializationContext context) -> void
+WarpCLR.CSharp.Generators.WarpCLRGenerator.WarpCLRGenerator() -> void

@@ -1,25 +1,5 @@
 namespace WarpCLR.CSharp;
 
-public readonly record struct WarpMapEntry
-{
-    public WarpMapEntry(
-        string identity,
-        int inputBufferCount,
-        int scalarArgumentCount)
-    {
-        WarpEntryContract.Validate(identity, inputBufferCount, scalarArgumentCount);
-        Identity = identity;
-        InputBufferCount = inputBufferCount;
-        ScalarArgumentCount = scalarArgumentCount;
-    }
-
-    public string Identity { get; }
-
-    public int InputBufferCount { get; }
-
-    public int ScalarArgumentCount { get; }
-}
-
 public readonly record struct WarpReductionEntry
 {
     public WarpReductionEntry(
@@ -50,17 +30,4 @@ public readonly record struct WarpReductionEntry
     public int ScalarArgumentCount { get; }
 
     public WarpExecution Execution { get; }
-}
-
-internal static class WarpEntryContract
-{
-    public static void Validate(
-        string identity,
-        int inputBufferCount,
-        int scalarArgumentCount)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(identity);
-        ArgumentOutOfRangeException.ThrowIfLessThan(inputBufferCount, 1);
-        ArgumentOutOfRangeException.ThrowIfNegative(scalarArgumentCount);
-    }
 }

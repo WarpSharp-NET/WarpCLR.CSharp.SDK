@@ -8,11 +8,16 @@ using WarpCLR.Verifier;
 namespace WarpCLR.CSharp.Generators.Tests;
 
 [TestClass]
-public sealed class WarpCLRGeneratorTests
+[global::System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1812:Avoid uninstantiated internal classes",
+    Justification = "MSTest creates this internal fixture through reflected discovery.")]
+internal sealed class WarpCLRGeneratorTests
 {
+    private static readonly string[] ExpectedMapRoles = ["input", "input", "scalar"];
+    private static readonly string[] ExpectedModeMethods = ["Map", "Maximum", "Minimum", "WrappingSum"];
+    private static readonly string[] ExpectedModes = ["map", "reduce-maximum", "reduce-minimum", "reduce-wrapping-sum"];
     [TestMethod]
     [FourBackends]
-    public void Map_entry_emits_manifest_and_catalog(WarpBackendKind backend)
+    public void MapEntryEmitsManifestAndCatalog(WarpBackendKind backend)
     {
         AssertBackend(backend);
         const string source = """
@@ -39,15 +44,15 @@ public sealed class WarpCLRGeneratorTests
         string manifest = RequireManifest(result);
         using JsonDocument document = JsonDocument.Parse(manifest);
         JsonElement root = document.RootElement;
-        Assert.AreEqual($"GeneratorMap{backend}", root.GetProperty("producer").GetString());
-        Assert.AreEqual("2.3.4.0", root.GetProperty("producerVersion").GetString());
+        Assert.AreEqual($"GeneratorMap{backend}", root.GetProperty("producer").GetString(), StringComparer.Ordinal);
+        Assert.AreEqual("2.3.4.0", root.GetProperty("producerVersion").GetString(), StringComparer.Ordinal);
 
         JsonElement entry = root.GetProperty("entries")[0];
-        Assert.AreEqual("Demo.Kernels", entry.GetProperty("type").GetString());
-        Assert.AreEqual("Transform", entry.GetProperty("method").GetString());
-        Assert.AreEqual("map", entry.GetProperty("execution").GetString());
+        Assert.AreEqual("Demo.Kernels", entry.GetProperty("type").GetString(), StringComparer.Ordinal);
+        Assert.AreEqual("Transform", entry.GetProperty("method").GetString(), StringComparer.Ordinal);
+        Assert.AreEqual("map", entry.GetProperty("execution").GetString(), StringComparer.Ordinal);
         CollectionAssert.AreEqual(
-            new[] { "input", "input", "scalar" },
+            ExpectedMapRoles,
             entry.GetProperty("parameterRoles")
                 .EnumerateArray()
                 .Select(value => value.GetString())
@@ -59,19 +64,19 @@ public sealed class WarpCLRGeneratorTests
         Assert.IsNotNull(catalog);
         IPropertySymbol property = catalog.GetMembers("Transform")
             .OfType<IPropertySymbol>()
-            .Single();
+            .SingleItem();
         Assert.AreEqual(
             "WarpCLR.CSharp.WarpMapEntry",
-            property.Type.ToDisplayString());
+            property.Type.ToDisplayString(), StringComparer.Ordinal);
         StringAssert.Contains(
-            result.GeneratedSources.Single().SourceText.ToString(),
-            "new global::WarpCLR.CSharp.WarpMapEntry(\"Demo.Kernels.Transform\", 2, 1)");
+            result.GeneratedSources.SingleItem().SourceText.ToString(),
+            "new global::WarpCLR.CSharp.WarpMapEntry(\"Demo.Kernels.Transform\", 2, 1)", StringComparison.Ordinal);
         AssertCanonicalManifestReachesGraphHash(result);
     }
 
     [TestMethod]
     [FourBackends]
-    public void All_execution_modes_emit_exact_names(WarpBackendKind backend)
+    public void AllExecutionModesEmitExactNames(WarpBackendKind backend)
     {
         AssertBackend(backend);
         const string source = """
@@ -101,18 +106,12 @@ public sealed class WarpCLRGeneratorTests
         using JsonDocument document = JsonDocument.Parse(RequireManifest(result));
         JsonElement entries = document.RootElement.GetProperty("entries");
         CollectionAssert.AreEqual(
-            new[] { "Map", "Maximum", "Minimum", "WrappingSum" },
+            ExpectedModeMethods,
             entries.EnumerateArray()
                 .Select(entry => entry.GetProperty("method").GetString())
                 .ToArray());
         CollectionAssert.AreEqual(
-            new[]
-            {
-                "map",
-                "reduce-maximum",
-                "reduce-minimum",
-                "reduce-wrapping-sum",
-            },
+            ExpectedModes,
             entries.EnumerateArray()
                 .Select(entry => entry.GetProperty("execution").GetString())
                 .ToArray());
@@ -121,12 +120,12 @@ public sealed class WarpCLRGeneratorTests
             .GetTypeByMetadataName("Demo.WarpCLRReductionsEntries")!;
         Assert.AreEqual(
             "WarpCLR.CSharp.WarpMapEntry",
-            catalog.GetMembers("Map").OfType<IPropertySymbol>().Single().Type.ToDisplayString());
+            catalog.GetMembers("Map").OfType<IPropertySymbol>().SingleItem().Type.ToDisplayString(), StringComparer.Ordinal);
         foreach (string name in new[] { "Maximum", "Minimum", "WrappingSum" })
         {
             Assert.AreEqual(
                 "WarpCLR.CSharp.WarpReductionEntry",
-                catalog.GetMembers(name).OfType<IPropertySymbol>().Single().Type.ToDisplayString());
+                catalog.GetMembers(name).OfType<IPropertySymbol>().SingleItem().Type.ToDisplayString(), StringComparer.Ordinal);
         }
 
         AssertCanonicalManifestReachesGraphHash(result);
@@ -134,7 +133,7 @@ public sealed class WarpCLRGeneratorTests
 
     [TestMethod]
     [FourBackends]
-    public void Entry_order_is_source_order_independent(WarpBackendKind backend)
+    public void EntryOrderIsSourceOrderIndependent(WarpBackendKind backend)
     {
         AssertBackend(backend);
         const string first = """
@@ -165,15 +164,15 @@ public sealed class WarpCLRGeneratorTests
             second,
             first);
 
-        Assert.AreEqual(RequireManifest(forward), RequireManifest(reverse));
+        Assert.AreEqual(RequireManifest(forward), RequireManifest(reverse), StringComparer.Ordinal);
         Assert.AreEqual(
-            forward.GeneratedSources.Single().SourceText.ToString(),
-            reverse.GeneratedSources.Single().SourceText.ToString());
+            forward.GeneratedSources.SingleItem().SourceText.ToString(),
+            reverse.GeneratedSources.SingleItem().SourceText.ToString(), StringComparer.Ordinal);
     }
 
     [TestMethod]
     [FourBackends]
-    public void Project_without_entries_emits_nothing(WarpBackendKind backend)
+    public void ProjectWithoutEntriesEmitsNothing(WarpBackendKind backend)
     {
         AssertBackend(backend);
         const string source = """
@@ -195,7 +194,7 @@ public sealed class WarpCLRGeneratorTests
 
     [TestMethod]
     [FourBackends]
-    public void Unicode_identity_uses_canonical_json(WarpBackendKind backend)
+    public void UnicodeIdentityUsesCanonicalJson(WarpBackendKind backend)
     {
         AssertBackend(backend);
         const string source = """
@@ -212,14 +211,14 @@ public sealed class WarpCLRGeneratorTests
             $"GeneratorUnicode{backend}",
             source);
         string manifest = RequireManifest(result);
-        StringAssert.Contains(manifest, "M\\u00FCnchen.Kernels");
-        StringAssert.Contains(manifest, "\\u0394");
+        StringAssert.Contains(manifest, "M\\u00FCnchen.Kernels", StringComparison.Ordinal);
+        StringAssert.Contains(manifest, "\\u0394", StringComparison.Ordinal);
         AssertCanonicalManifestReachesGraphHash(result);
     }
 
     [TestMethod]
     [FourBackends]
-    public void Invalid_role_is_not_hidden_from_verifier(WarpBackendKind backend)
+    public void InvalidRoleIsNotHiddenFromVerifier(WarpBackendKind backend)
     {
         AssertBackend(backend);
         const string source = """
@@ -236,11 +235,11 @@ public sealed class WarpCLRGeneratorTests
             $"GeneratorInvalid{backend}",
             source);
         string manifest = RequireManifest(result);
-        StringAssert.Contains(manifest, "\"parameterRoles\":[\"invalid\"]");
+        StringAssert.Contains(manifest, "\"parameterRoles\":[\"invalid\"]", StringComparison.Ordinal);
         byte[] assembly = Emit(result.OutputCompilation);
         WarpVerificationException exception = Assert.ThrowsExactly<WarpVerificationException>(
             () => new WarpModuleVerifier().Verify(assembly));
-        Assert.AreEqual("WRPCIL2001", exception.Code);
+        Assert.AreEqual("WRPCIL2001", exception.Code, StringComparer.Ordinal);
     }
 
     private static WarpCLRGeneratorTestResult RunValid(
@@ -271,7 +270,7 @@ public sealed class WarpCLRGeneratorTests
         byte[] assembly = Emit(result.OutputCompilation);
         WarpVerificationException exception = Assert.ThrowsExactly<WarpVerificationException>(
             () => new WarpModuleVerifier().Verify(assembly));
-        Assert.AreEqual("WRPCIL2004", exception.Code);
+        Assert.AreEqual("WRPCIL2004", exception.Code, StringComparer.Ordinal);
     }
 
     private static byte[] Emit(CSharpCompilation compilation)

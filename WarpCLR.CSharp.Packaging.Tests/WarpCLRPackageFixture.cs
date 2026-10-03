@@ -52,104 +52,17 @@ internal sealed class WarpCLRPackageFixture : IDisposable
 
     public IReadOnlyList<string> PackageAssets { get; }
 
-    public static WarpCLRPackageFixture Create()
+    public static async Task<WarpCLRPackageFixture> CreateAsync()
     {
         string root = CreateTemporaryDirectory();
         try
         {
             string sdkRoot = FindRepositoryRoot();
-            string warpClrRoot = Path.GetFullPath(
-                Path.Combine(sdkRoot, "..", "WarpCLR"));
-            string feed = Directory.CreateDirectory(
-                Path.Combine(root, "feed")).FullName;
-
-            BuildWarpCLRPackages(root, warpClrRoot, feed);
-            BuildCSharpPackage(root, sdkRoot, feed);
-
-            string packagePath = Path.Combine(
-                feed,
-                $"WarpCLR.CSharp.{PackageVersion}.nupkg");
-            if (!File.Exists(packagePath))
-            {
-                throw new InvalidOperationException(
-                    "The WarpCLR C# package was not created.");
-            }
-
-            string[] csharpPackages = Directory.GetFiles(
-                    feed,
-                    "WarpCLR.CSharp*.nupkg")
-                .Select(Path.GetFileName)
-                .OrderBy(value => value, StringComparer.Ordinal)
-                .ToArray()!;
-            if (csharpPackages.Length != 1 ||
-                csharpPackages[0] != $"WarpCLR.CSharp.{PackageVersion}.nupkg")
-            {
-                throw new InvalidOperationException(
-                    "The feed contains an unexpected WarpCLR C# package.");
-            }
-
-            string validProject = CreateValidConsumer(root, feed);
-            RunDotNet(
-                root,
-                Path.GetDirectoryName(validProject)!,
-                ["restore", validProject, "--force", "--no-cache", "--verbosity", "minimal"]);
-            ProcessResult validBuild = RunDotNet(
-                root,
-                Path.GetDirectoryName(validProject)!,
-                ["build", validProject, "-c", Configuration, "--no-restore", "--verbosity", "minimal"]);
-            if (!validBuild.Output.Contains(
-                    "WarpCLR finalized and verified the assembly.",
-                    StringComparison.Ordinal))
-            {
-                throw new InvalidOperationException(
-                    "The package build did not finalize the consumer assembly.");
-            }
-
-            ProcessResult incrementalBuild = RunDotNet(
-                root,
-                Path.GetDirectoryName(validProject)!,
-                ["build", validProject, "-c", Configuration, "--no-restore", "--verbosity", "minimal"]);
-            if (!incrementalBuild.Output.Contains(
-                    "WarpCLR verified the finalized assembly.",
-                    StringComparison.Ordinal))
-            {
-                throw new InvalidOperationException(
-                    "The incremental package build did not verify the assembly.");
-            }
-
-            string assemblyPath = Path.Combine(
-                root,
-                "artifacts",
-                "bin",
-                "Consumer",
-                Configuration.ToLowerInvariant(),
-                "WarpCLRPackageConsumer.dll");
-            byte[] consumerAssembly = File.ReadAllBytes(assemblyPath);
-
-            string invalidProject = CreateInvalidConsumer(root, feed);
-            RunDotNet(
-                root,
-                Path.GetDirectoryName(invalidProject)!,
-                ["restore", invalidProject, "--force", "--no-cache", "--verbosity", "minimal"]);
-            ProcessResult invalidBuild = RunDotNet(
-                root,
-                Path.GetDirectoryName(invalidProject)!,
-                ["build", invalidProject, "-c", Configuration, "--no-restore", "--verbosity", "minimal"],
-                requireSuccess: false);
-            if (invalidBuild.ExitCode == 0 ||
-                !invalidBuild.Output.Contains("WCS1003", StringComparison.Ordinal))
-            {
-                throw new InvalidOperationException(
-                    "The packaged analyzer did not reject an operation outside the portable profile.");
-            }
-
-            return new WarpCLRPackageFixture(
-                root,
-                packagePath,
-                consumerAssembly,
-                invalidBuild.Output,
-                incrementalBuild.Output,
-                ReadPackageAssets(packagePath));
+            string warpClrRoot = Path.GetFullPath(Path.Combine(sdkRoot, "..", "WarpCLR"));
+            string feed = Directory.CreateDirectory(Path.Combine(root, "feed")).FullName;
+            await BuildWarpCLRPackagesAsync(root, warpClrRoot, feed).ConfigureAwait(false);
+            await BuildCSharpPackageAsync(root, sdkRoot, feed).ConfigureAwait(false);
+            return await BuildConsumerFixtureAsync(root, feed, ValidatePackageFeed(feed)).ConfigureAwait(false);
         }
         catch
         {
@@ -157,6 +70,68 @@ internal sealed class WarpCLRPackageFixture : IDisposable
             throw;
         }
     }
+
+    private static string ValidatePackageFeed(string feed)
+    {
+        string packagePath = Path.Combine(feed, $"WarpCLR.CSharp.{PackageVersion}.nupkg");
+        if (!File.Exists(packagePath))
+        {
+            throw new InvalidOperationException("The WarpCLR C# package was not created.");
+        }
+
+        string[] csharpPackages = Directory.GetFiles(feed, "WarpCLR.CSharp*.nupkg")
+            .Select(Path.GetFileName)
+            .OrderBy(value => value, StringComparer.Ordinal)
+            .ToArray()!;
+        if (csharpPackages.Length != 1 ||
+            !string.Equals(csharpPackages[0], $"WarpCLR.CSharp.{PackageVersion}.nupkg", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("The feed contains an unexpected WarpCLR C# package.");
+        }
+
+        return packagePath;
+    }
+
+    private static async Task<WarpCLRPackageFixture> BuildConsumerFixtureAsync(
+        string root, string feed, string packagePath)
+    {
+        string validProject = CreateValidConsumer(root, feed);
+        await RestoreConsumerAsync(root, validProject).ConfigureAwait(false);
+        ProcessResult validBuild = await BuildConsumerAsync(root, validProject).ConfigureAwait(false);
+        if (!validBuild.Output.Contains("WarpCLR finalized and verified the assembly.", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("The package build did not finalize the consumer assembly.");
+        }
+
+        ProcessResult incrementalBuild = await BuildConsumerAsync(root, validProject).ConfigureAwait(false);
+        if (!incrementalBuild.Output.Contains("WarpCLR verified the finalized assembly.", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("The incremental package build did not verify the assembly.");
+        }
+
+        string assemblyPath = Path.Combine(root, "artifacts", "bin", "Consumer", "release", "WarpCLRPackageConsumer.dll");
+        byte[] consumerAssembly = await File.ReadAllBytesAsync(assemblyPath).ConfigureAwait(false);
+        string invalidProject = CreateInvalidConsumer(root, feed);
+        await RestoreConsumerAsync(root, invalidProject).ConfigureAwait(false);
+        ProcessResult invalidBuild = await BuildConsumerAsync(root, invalidProject, requireSuccess: false).ConfigureAwait(false);
+        if (invalidBuild.ExitCode == 0 || !invalidBuild.Output.Contains("WCS1003", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                "The packaged analyzer did not reject an operation outside the portable profile.");
+        }
+
+        return new WarpCLRPackageFixture(root, packagePath, consumerAssembly, invalidBuild.Output,
+            incrementalBuild.Output, ReadPackageAssets(packagePath));
+    }
+
+    private static Task<ProcessResult> RestoreConsumerAsync(string root, string project) =>
+        RunDotNetAsync(root, Path.GetDirectoryName(project)!,
+            ["restore", project, "--force", "--no-cache", "--verbosity", "minimal"]);
+
+    private static Task<ProcessResult> BuildConsumerAsync(
+        string root, string project, bool requireSuccess = true) =>
+        RunDotNetAsync(root, Path.GetDirectoryName(project)!,
+            ["build", project, "-c", Configuration, "--no-restore", "--verbosity", "minimal"], requireSuccess);
 
     public string CreateRuntimeDirectory(string name)
     {
@@ -171,51 +146,51 @@ internal sealed class WarpCLRPackageFixture : IDisposable
 
     public void Dispose() => DeleteTemporaryDirectory(Root);
 
-    private static void BuildWarpCLRPackages(
+    private static async Task BuildWarpCLRPackagesAsync(
         string root,
         string warpClrRoot,
         string feed)
     {
-        RunDotNet(
+        await RunDotNetAsync(
             root,
             warpClrRoot,
-            ["restore", "WarpCLR.slnx", "--force", "--no-cache", "--verbosity", "minimal"]);
-        RunDotNet(
+            ["restore", "WarpCLR.slnx", "--force", "--no-cache", "--verbosity", "minimal"]).ConfigureAwait(false);
+        await RunDotNetAsync(
             root,
             warpClrRoot,
-            ["build", "WarpCLR.Runtime.Host/WarpCLR.Runtime.Host.csproj", "-c", Configuration, "--no-restore", "--verbosity", "minimal"]);
-        RunDotNet(
+            ["build", "WarpCLR.Runtime.Host/WarpCLR.Runtime.Host.csproj", "-c", Configuration, "--no-restore", "--verbosity", "minimal"]).ConfigureAwait(false);
+        await RunDotNetAsync(
             root,
             warpClrRoot,
-            ["build", "WarpCLR.Sdk/WarpCLR.Sdk.csproj", "-c", Configuration, "--no-restore", "--verbosity", "minimal"]);
+            ["build", "WarpCLR.Sdk/WarpCLR.Sdk.csproj", "-c", Configuration, "--no-restore", "--verbosity", "minimal"]).ConfigureAwait(false);
 
         foreach (string project in WarpCLRPackageProjects)
         {
-            RunDotNet(
+            await RunDotNetAsync(
                 root,
                 warpClrRoot,
-                ["pack", project, "-c", Configuration, "--no-build", "--no-restore", "-o", feed, "--verbosity", "quiet"]);
+                ["pack", project, "-c", Configuration, "--no-build", "--no-restore", "-o", feed, "--verbosity", "quiet"]).ConfigureAwait(false);
         }
     }
 
-    private static void BuildCSharpPackage(
+    private static async Task BuildCSharpPackageAsync(
         string root,
         string sdkRoot,
         string feed)
     {
         const string project = "WarpCLR.CSharp/WarpCLR.CSharp.csproj";
-        RunDotNet(
+        await RunDotNetAsync(
             root,
             sdkRoot,
-            ["restore", project, "--force", "--no-cache", "--verbosity", "minimal"]);
-        RunDotNet(
+            ["restore", project, "--force", "--no-cache", "--verbosity", "minimal"]).ConfigureAwait(false);
+        await RunDotNetAsync(
             root,
             sdkRoot,
-            ["build", project, "-c", Configuration, "--no-restore", "--verbosity", "minimal"]);
-        RunDotNet(
+            ["build", project, "-c", Configuration, "--no-restore", "--verbosity", "minimal"]).ConfigureAwait(false);
+        await RunDotNetAsync(
             root,
             sdkRoot,
-            ["pack", project, "-c", Configuration, "--no-build", "--no-restore", "-o", feed, "--verbosity", "quiet"]);
+            ["pack", project, "-c", Configuration, "--no-build", "--no-restore", "-o", feed, "--verbosity", "quiet"]).ConfigureAwait(false);
     }
 
     private static string CreateValidConsumer(string root, string feed)
@@ -327,7 +302,7 @@ internal sealed class WarpCLRPackageFixture : IDisposable
         File.WriteAllText(projectPath, project, Utf8WithoutBom);
     }
 
-    private static IReadOnlyList<string> ReadPackageAssets(string packagePath)
+    private static string[] ReadPackageAssets(string packagePath)
     {
         using ZipArchive archive = ZipFile.OpenRead(packagePath);
         return archive.Entries
@@ -341,11 +316,40 @@ internal sealed class WarpCLRPackageFixture : IDisposable
             .ToArray();
     }
 
-    private static ProcessResult RunDotNet(
-        string root,
-        string workingDirectory,
-        IReadOnlyList<string> arguments,
-        bool requireSuccess = true)
+    private static async Task<ProcessResult> RunDotNetAsync(
+        string root, string workingDirectory, IReadOnlyList<string> arguments, bool requireSuccess = true)
+    {
+        using Process process = Process.Start(CreateDotNetStartInfo(root, workingDirectory, arguments))
+            ?? throw new InvalidOperationException("The dotnet process did not start.");
+        Task<string> standardOutput = process.StandardOutput.ReadToEndAsync();
+        Task<string> standardError = process.StandardError.ReadToEndAsync();
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(120));
+        try
+        {
+            await process.WaitForExitAsync(timeout.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException exception)
+        {
+            process.Kill(entireProcessTree: true);
+            await process.WaitForExitAsync().ConfigureAwait(false);
+            await standardOutput.ConfigureAwait(false);
+            await standardError.ConfigureAwait(false);
+            throw new TimeoutException("The dotnet process exceeded 120 seconds.", exception);
+        }
+
+        string output = await standardOutput.ConfigureAwait(false) + await standardError.ConfigureAwait(false);
+        var result = new ProcessResult(process.ExitCode, output);
+        if (requireSuccess && result.ExitCode != 0)
+        {
+            throw new InvalidOperationException(
+                $"The dotnet command failed with code {result.ExitCode}.{Environment.NewLine}{result.Output}");
+        }
+
+        return result;
+    }
+
+    private static ProcessStartInfo CreateDotNetStartInfo(
+        string root, string workingDirectory, IReadOnlyList<string> arguments)
     {
         var startInfo = new ProcessStartInfo
         {
@@ -378,36 +382,17 @@ internal sealed class WarpCLRPackageFixture : IDisposable
         startInfo.Environment["MSBUILDDISABLENODEREUSE"] = "1";
         startInfo.Environment.Remove("WarpBuildRoot");
 
-        using Process process = Process.Start(startInfo)
-            ?? throw new InvalidOperationException("The dotnet process did not start.");
-        Task<string> standardOutput = process.StandardOutput.ReadToEndAsync();
-        Task<string> standardError = process.StandardError.ReadToEndAsync();
-        if (!process.WaitForExit(120_000))
-        {
-            process.Kill(entireProcessTree: true);
-            throw new TimeoutException("The dotnet process exceeded 120 seconds.");
-        }
-
-        string output = standardOutput.GetAwaiter().GetResult() +
-            standardError.GetAwaiter().GetResult();
-        var result = new ProcessResult(process.ExitCode, output);
-        if (requireSuccess && result.ExitCode != 0)
-        {
-            throw new InvalidOperationException(
-                $"The dotnet command failed with code {result.ExitCode}.{Environment.NewLine}{result.Output}");
-        }
-
-        return result;
+        return startInfo;
     }
 
     private static string FindRepositoryRoot()
     {
-        string? root = typeof(WarpCLRPackageFixture).Assembly
+        AssemblyMetadataAttribute[] roots = typeof(WarpCLRPackageFixture).Assembly
             .GetCustomAttributes<AssemblyMetadataAttribute>()
-            .SingleOrDefault(
-                attribute => attribute.Key ==
-                    "WarpCLR.CSharp.RepositoryRoot")?
-            .Value;
+            .Where(attribute => string.Equals(attribute.Key, "WarpCLR.CSharp.RepositoryRoot", StringComparison.Ordinal))
+            .ToArray();
+        Assert.HasCount(1, roots, "The test assembly must declare one SDK repository root.");
+        string? root = roots[0].Value;
         if (root is not null &&
             File.Exists(Path.Combine(root, "WarpCLR.CSharp.SDK.slnx")))
         {

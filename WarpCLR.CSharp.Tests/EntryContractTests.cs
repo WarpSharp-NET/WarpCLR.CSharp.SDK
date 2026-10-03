@@ -3,23 +3,25 @@ using WarpCLR.IR;
 namespace WarpCLR.CSharp.Tests;
 
 [TestClass]
-public sealed class EntryContractTests
+[global::System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1812:Avoid uninstantiated internal classes",
+    Justification = "MSTest creates this internal fixture through reflected discovery.")]
+internal sealed class EntryContractTests
 {
     [TestMethod]
     [FourBackends]
-    public void Map_descriptor_preserves_the_complete_contract(WarpBackendKind backend)
+    public void MapDescriptorPreservesTheCompleteContract(WarpBackendKind backend)
     {
         Assert.IsTrue(WarpBackendCatalog.Required.Contains(backend));
         var entry = new WarpMapEntry("Example.Kernels.Transform", 2, 1);
 
-        Assert.AreEqual("Example.Kernels.Transform", entry.Identity);
+        Assert.AreEqual("Example.Kernels.Transform", entry.Identity, StringComparer.Ordinal);
         Assert.AreEqual(2, entry.InputBufferCount);
         Assert.AreEqual(1, entry.ScalarArgumentCount);
     }
 
     [TestMethod]
     [FourBackends]
-    public void Reduction_descriptor_rejects_map_execution(WarpBackendKind backend)
+    public void ReductionDescriptorRejectsMapExecution(WarpBackendKind backend)
     {
         Assert.IsTrue(WarpBackendCatalog.Required.Contains(backend));
         Assert.ThrowsExactly<ArgumentOutOfRangeException>(
@@ -32,7 +34,7 @@ public sealed class EntryContractTests
 
     [TestMethod]
     [FourBackends]
-    public void Entry_descriptor_requires_an_input_buffer(WarpBackendKind backend)
+    public void EntryDescriptorRequiresAnInputBuffer(WarpBackendKind backend)
     {
         Assert.IsTrue(WarpBackendCatalog.Required.Contains(backend));
         Assert.ThrowsExactly<ArgumentOutOfRangeException>(

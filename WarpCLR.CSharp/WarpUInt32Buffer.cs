@@ -45,10 +45,15 @@ public sealed class WarpUInt32Buffer : IReadOnlyList<uint>
 
     public uint[] ToArray() => values.ToArray();
 
-    public IEnumerator<uint> GetEnumerator() =>
-        ((IEnumerable<uint>)values).GetEnumerator();
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "HLQ006:Use value-type enumerators",
+        Justification = "Preserves the existing public IEnumerator<uint> return ABI; EnumerateValues and ReadOnlySpan provide allocation-free enumeration.")]
+    public IEnumerator<uint> GetEnumerator() => EnumerateValues();
 
-    IEnumerator IEnumerable.GetEnumerator() => values.GetEnumerator();
+    public WarpUInt32BufferEnumerator EnumerateValues() => new(values);
+
+    IEnumerator<uint> IEnumerable<uint>.GetEnumerator() => GetEnumerator();
+
+    IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
     internal uint[] GetStorage() => values;
 }

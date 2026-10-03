@@ -6,19 +6,27 @@ namespace WarpCLR.CSharp;
 
 public sealed class WarpCLRProgram
 {
-    private readonly WarpLoadedModule module;
+    private readonly WarpLoadedModule? developmentModule;
+    private readonly WarpRuntimeModule? runtimeModule;
     private readonly ReadOnlyCollection<string> entryIdentities;
 
     private WarpCLRProgram(WarpLoadedModule module)
     {
-        this.module = module;
+        developmentModule = module;
         entryIdentities = Array.AsReadOnly(
             module.Entries.Keys.Order(StringComparer.Ordinal).ToArray());
     }
 
-    public string ManifestHash => module.ManifestHash;
+    private WarpCLRProgram(WarpRuntimeModule module)
+    {
+        runtimeModule = module;
+        entryIdentities = Array.AsReadOnly(
+            module.Entries.Keys.Order(StringComparer.Ordinal).ToArray());
+    }
 
-    public string AssemblyHash => module.AssemblyHash;
+    public string ManifestHash => runtimeModule?.ManifestHash ?? developmentModule!.ManifestHash;
+
+    public string AssemblyHash => runtimeModule?.AssemblyHash ?? developmentModule!.AssemblyHash;
 
     public IReadOnlyList<string> EntryIdentities => entryIdentities;
 
@@ -36,6 +44,29 @@ public sealed class WarpCLRProgram
                 assemblyBytes,
                 packageDirectory));
 
-    public WarpCLRSession CreateDevelopmentSession(WarpBackendKind backend) =>
-        new(module, backend);
+    public static WarpCLRProgram LoadTrusted(ReadOnlyMemory<byte> assemblyBytes, WarpModuleTrust trust) =>
+        new(WarpRuntimeModule.Load(assemblyBytes, trust));
+
+    public WarpCLRSession CreateDevelopmentSession(WarpBackendKind backend)
+    {
+        if (developmentModule is null)
+        {
+            throw new WarpHostException("WRPRUNTIME1004", "A development session requires an explicitly loaded development artifact package.");
+        }
+
+        return new WarpCLRSession(developmentModule, backend);
+    }
+
+    public WarpCLRRuntimeSession CreateRuntimeSession(
+        WarpBackendKind backend,
+        WarpRuntimeOptions? options = null,
+        WarpJitCache? jitCache = null)
+    {
+        if (runtimeModule is null)
+        {
+            throw new WarpHostException("WRPRUNTIME1000", "A runtime session requires explicit module authorization through LoadTrusted.");
+        }
+
+        return new WarpCLRRuntimeSession(runtimeModule, backend, options, jitCache);
+    }
 }

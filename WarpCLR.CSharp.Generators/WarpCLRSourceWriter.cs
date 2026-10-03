@@ -22,7 +22,7 @@ internal static class WarpCLRSourceWriter
         Line(source, ")]");
 
         foreach (IGrouping<string, WarpCLREntryModel> catalog in entries
-                     .GroupBy(entry => $"{entry.NamespaceSource}\0{entry.CatalogName}")
+                     .GroupBy(entry => $"{entry.NamespaceSource}\0{entry.CatalogName}", StringComparer.Ordinal)
                      .OrderBy(group => group.Key, StringComparer.Ordinal))
         {
             WarpCLREntryModel first = catalog.First();

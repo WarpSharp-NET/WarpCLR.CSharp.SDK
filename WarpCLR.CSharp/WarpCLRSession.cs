@@ -77,7 +77,7 @@ public sealed class WarpCLRSession
         }
     }
 
-    private static IReadOnlyList<uint[]> GetInputStorage(
+    private static uint[][] GetInputStorage(
         IReadOnlyList<WarpUInt32Buffer> inputs)
     {
         ArgumentNullException.ThrowIfNull(inputs);

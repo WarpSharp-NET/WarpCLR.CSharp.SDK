@@ -24,6 +24,11 @@ public sealed class WarpCLRAnalyzer : DiagnosticAnalyzer
 
     public override void Initialize(AnalysisContext context)
     {
+        if (context is null)
+        {
+            throw new ArgumentNullException(nameof(context));
+        }
+
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
         context.EnableConcurrentExecution();
         context.RegisterCompilationStartAction(InitializeCompilation);
@@ -231,7 +236,7 @@ public sealed class WarpCLRAnalyzer : DiagnosticAnalyzer
             }
 
             if (operation is IVariableDeclaratorOperation declarator &&
-                !IsUInt32(declarator.Symbol.Type))
+                !IsScalarLocal(declarator.Symbol.Type))
             {
                 reportDiagnostic(
                     Diagnostic.Create(
@@ -267,7 +272,7 @@ public sealed class WarpCLRAnalyzer : DiagnosticAnalyzer
 
             try
             {
-                SyntaxReference declaration = target.DeclaringSyntaxReferences.Single();
+                SyntaxReference declaration = target.DeclaringSyntaxReferences[0];
                 SyntaxNode syntax = declaration.GetSyntax();
                 SemanticModel model = compilation.GetSemanticModel(syntax.SyntaxTree);
                 IOperation? body = syntax switch
@@ -305,16 +310,16 @@ public sealed class WarpCLRAnalyzer : DiagnosticAnalyzer
             IVariableInitializerOperation => true,
             IExpressionStatementOperation => true,
             ISimpleAssignmentOperation assignment =>
-                assignment.Target is ILocalReferenceOperation,
+                IsWritableScalar(assignment.Target) && IsScalarLocal(assignment.Type),
             IParameterReferenceOperation parameter =>
                 IsUInt32(parameter.Parameter.Type),
-            ILocalReferenceOperation local => IsUInt32(local.Local.Type),
-            ILiteralOperation literal => IsInteger(literal.Type),
-            IDefaultValueOperation value => IsUInt32(value.Type),
+            ILocalReferenceOperation local => IsScalarLocal(local.Local.Type),
+            ILiteralOperation literal => IsInteger(literal.Type) || IsBoolean(literal.Type),
+            IDefaultValueOperation value => IsScalarLocal(value.Type),
             IFieldReferenceOperation field =>
                 field.Instance is null &&
                 field.Field.HasConstantValue &&
-                IsInteger(field.Type),
+                (IsInteger(field.Type) || IsBoolean(field.Type)),
             IParenthesizedOperation => true,
             IConversionOperation conversion =>
                 IsSupportedConversion(conversion),
@@ -325,9 +330,18 @@ public sealed class WarpCLRAnalyzer : DiagnosticAnalyzer
             IInvocationOperation invocation => IsSupportedInvocation(invocation),
             IArgumentOperation => true,
             ICompoundAssignmentOperation assignment =>
-                assignment.Target is ILocalReferenceOperation &&
+                IsWritableScalar(assignment.Target) && IsScalarLocal(assignment.Type) &&
                 !assignment.IsChecked &&
+                !assignment.IsLifted && assignment.OperatorMethod is null &&
                 IsSupportedBinaryOperator(assignment.OperatorKind),
+            IIncrementOrDecrementOperation increment =>
+                IsWritableScalar(increment.Target) && IsUInt32(increment.Type) &&
+                !increment.IsChecked && !increment.IsLifted && increment.OperatorMethod is null,
+            IWhileLoopOperation loop =>
+                IsBoolean(loop.Condition?.Type) && !loop.ConditionIsUntil && loop.IgnoredCondition is null,
+            IForLoopOperation loop => loop.Condition is null || IsBoolean(loop.Condition.Type),
+            IBranchOperation branch => branch.BranchKind is BranchKind.Break or BranchKind.Continue or BranchKind.GoTo,
+            ILabeledOperation => true,
             IEmptyOperation => true,
             _ => false,
         };
@@ -365,16 +379,29 @@ public sealed class WarpCLRAnalyzer : DiagnosticAnalyzer
         private static bool IsSupportedUnary(IUnaryOperation unary) =>
             !unary.IsChecked &&
             unary.OperatorMethod is null &&
-            unary.OperatorKind == UnaryOperatorKind.BitwiseNegation &&
-            IsUInt32(unary.Operand.Type) &&
-            IsUInt32(unary.Type);
+            ((unary.OperatorKind == UnaryOperatorKind.BitwiseNegation &&
+                IsUInt32(unary.Operand.Type) && IsUInt32(unary.Type)) ||
+                (unary.OperatorKind == UnaryOperatorKind.Not &&
+                    IsBoolean(unary.Operand.Type) && IsBoolean(unary.Type)));
 
         private static bool IsSupportedBinary(IBinaryOperation binary)
         {
             if (binary.IsChecked ||
                 binary.IsLifted ||
-                binary.OperatorMethod is not null ||
-                !IsUInt32(binary.LeftOperand.Type))
+                binary.OperatorMethod is not null)
+            {
+                return false;
+            }
+
+            if (IsBoolean(binary.LeftOperand.Type))
+            {
+                return IsBoolean(binary.RightOperand.Type) && IsBoolean(binary.Type) &&
+                    binary.OperatorKind is BinaryOperatorKind.And or BinaryOperatorKind.Or or BinaryOperatorKind.ExclusiveOr or
+                        BinaryOperatorKind.ConditionalAnd or BinaryOperatorKind.ConditionalOr or
+                        BinaryOperatorKind.Equals or BinaryOperatorKind.NotEquals;
+            }
+
+            if (!IsUInt32(binary.LeftOperand.Type))
             {
                 return false;
             }
@@ -403,7 +430,7 @@ public sealed class WarpCLRAnalyzer : DiagnosticAnalyzer
         private static bool IsSupportedConditional(
             IConditionalOperation conditional) =>
             conditional.Condition.Type?.SpecialType == SpecialType.System_Boolean &&
-            (conditional.Type is null || IsUInt32(conditional.Type));
+            (conditional.Type is null || IsScalarLocal(conditional.Type));
 
         private static bool IsSupportedBinaryOperator(
             BinaryOperatorKind operatorKind) => operatorKind is
@@ -431,5 +458,18 @@ public sealed class WarpCLRAnalyzer : DiagnosticAnalyzer
 
         private static bool IsUInt32(ITypeSymbol? type) =>
             type?.SpecialType == SpecialType.System_UInt32;
+
+        private static bool IsBoolean(ITypeSymbol? type) =>
+            type?.SpecialType == SpecialType.System_Boolean;
+
+        private static bool IsScalarLocal(ITypeSymbol? type) => IsUInt32(type) || IsBoolean(type);
+
+        private static bool IsWritableScalar(IOperation target) => target switch
+        {
+            ILocalReferenceOperation local => IsScalarLocal(local.Local.Type),
+            IParameterReferenceOperation parameter =>
+                parameter.Parameter.RefKind == RefKind.None && IsUInt32(parameter.Parameter.Type),
+            _ => false,
+        };
     }
 }

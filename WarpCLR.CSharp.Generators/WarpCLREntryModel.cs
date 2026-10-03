@@ -44,9 +44,9 @@ internal sealed class WarpCLREntryModel
 
     public ImmutableArray<string> ParameterRoles { get; }
 
-    public int InputBufferCount => ParameterRoles.Count(role => role == "input");
+    public int InputBufferCount => ParameterRoles.Count(role => string.Equals(role, "input", StringComparison.Ordinal));
 
-    public int ScalarArgumentCount => ParameterRoles.Count(role => role == "scalar");
+    public int ScalarArgumentCount => ParameterRoles.Count(role => string.Equals(role, "scalar", StringComparison.Ordinal));
 
     public string GraphHashPlaceholder { get; }
 }

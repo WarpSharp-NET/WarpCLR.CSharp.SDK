@@ -33,7 +33,10 @@ internal static class Program
 
             return 0;
         }
-        catch (Exception exception)
+        catch (Exception exception) when (exception is
+            WarpCLRBuildException or WarpCLR.Verifier.WarpVerificationException or
+            ArgumentException or IOException or UnauthorizedAccessException or
+            BadImageFormatException or InvalidOperationException)
         {
             Console.Error.WriteLine(exception.Message);
             return 1;

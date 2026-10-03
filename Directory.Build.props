@@ -5,11 +5,26 @@
     <LangVersion>14.0</LangVersion>
     <Nullable>enable</Nullable>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AnalysisLevel>latest-all</AnalysisLevel>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
     <VersionPrefix>0.1.0</VersionPrefix>
     <Deterministic>true</Deterministic>
+    <ShouldUnsetParentConfigurationAndPlatform>false</ShouldUnsetParentConfigurationAndPlatform>
     <WarpClrRepositoryRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\WarpCLR'))</WarpClrRepositoryRoot>
     <BaseOutputPath Condition="'$(WarpBuildRoot)' != ''">$(WarpBuildRoot)\bin\$(MSBuildProjectName)\</BaseOutputPath>
     <BaseIntermediateOutputPath Condition="'$(WarpBuildRoot)' != ''">$(WarpBuildRoot)\obj\$(MSBuildProjectName)\</BaseIntermediateOutputPath>
     <MSBuildProjectExtensionsPath Condition="'$(WarpBuildRoot)' != ''">$(BaseIntermediateOutputPath)</MSBuildProjectExtensionsPath>
   </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Meziantou.Analyzer" PrivateAssets="all" />
+    <PackageReference Include="Roslynator.Analyzers" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.VisualStudio.Threading.Analyzers" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.CodeAnalysis.BannedApiAnalyzers" PrivateAssets="all" />
+    <PackageReference Include="NetFabric.Hyperlinq.Analyzer" PrivateAssets="all" />
+    <AdditionalFiles Include="$(MSBuildThisFileDirectory)BannedSymbols.txt" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'WarpCLR.CSharp' or '$(MSBuildProjectName)' == 'WarpCLR.CSharp.Analyzers' or '$(MSBuildProjectName)' == 'WarpCLR.CSharp.Generators'">
+    <PackageReference Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" PrivateAssets="all" />
+  </ItemGroup>
 </Project>
