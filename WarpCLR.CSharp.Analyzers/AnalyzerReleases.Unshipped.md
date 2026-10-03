@@ -8,3 +8,6 @@ WCS1001 | WarpCLR.CSharp | Error | Invalid Warp entry declaration
 WCS1002 | WarpCLR.CSharp | Error | Invalid Warp parameter roles
 WCS1003 | WarpCLR.CSharp | Error | Unsupported Warp operation
 WCS1004 | WarpCLR.CSharp | Error | Unsupported Warp entry allocation
+WCS1005 | WarpCLR.CSharp | Error | Unsupported implicit CLR behavior
+WCS1006 | WarpCLR.CSharp | Error | Portable source compilation resource limit
+WCS1007 | WarpCLR.CSharp | Error | Unsupported module initialization

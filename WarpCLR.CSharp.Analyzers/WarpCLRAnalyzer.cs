@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Reflection;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
@@ -15,12 +16,17 @@ public sealed class WarpCLRAnalyzer : DiagnosticAnalyzer
         "WarpCLR.CSharp.WarpInputAttribute";
     private const string ScalarAttributeName =
         "WarpCLR.CSharp.WarpScalarAttribute";
+    // Mirrors WarpCompilationAdmission.MaximumFunctionsPerEntry without a net10.0 analyzer dependency.
+    private const int MaximumHelpersPerEntry = 256;
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
         ImmutableArray.Create(
             WarpDiagnosticDescriptors.EntryDeclaration,
             WarpDiagnosticDescriptors.ParameterRoles,
             WarpDiagnosticDescriptors.UnsupportedOperation,
-            WarpDiagnosticDescriptors.EntryAllocation);
+            WarpDiagnosticDescriptors.EntryAllocation,
+            WarpDiagnosticDescriptors.ImplicitRuntimeBehavior,
+            WarpDiagnosticDescriptors.SourceResourceLimit,
+            WarpDiagnosticDescriptors.ModuleInitialization);
 
     public override void Initialize(AnalysisContext context)
     {
@@ -59,6 +65,8 @@ public sealed class WarpCLRAnalyzer : DiagnosticAnalyzer
                 analysisContext => AnalyzeOperationBlock(
                     analysisContext,
                     entryAttribute));
+            context.RegisterCompilationEndAction(
+                analysisContext => WarpModuleInitializationAnalysis.Report(analysisContext, entryAttribute));
         }
 
     }
@@ -74,6 +82,14 @@ public sealed class WarpCLRAnalyzer : DiagnosticAnalyzer
         if (entryData is null)
         {
             return;
+        }
+
+        string? implicitBehavior = GetImplicitRuntimeBehavior(method);
+        if (implicitBehavior is not null)
+        {
+            context.ReportDiagnostic(Diagnostic.Create(
+                WarpDiagnosticDescriptors.ImplicitRuntimeBehavior,
+                GetLocation(method), method.ToDisplayString(), implicitBehavior));
         }
 
         if (!HasValidDeclaration(method, entryData))
@@ -170,7 +186,7 @@ public sealed class WarpCLRAnalyzer : DiagnosticAnalyzer
         INamedTypeSymbol entryAttribute)
     {
         if (context.OwningSymbol is not IMethodSymbol method ||
-            GetAttribute(method, entryAttribute) is null)
+            GetAttribute(method, entryAttribute) is null || GetImplicitRuntimeBehavior(method) is not null)
         {
             return;
         }
@@ -202,12 +218,26 @@ public sealed class WarpCLRAnalyzer : DiagnosticAnalyzer
     private static Location GetLocation(ISymbol symbol) => symbol.Locations
         .First(location => location.IsInSource);
 
+    private static string? GetImplicitRuntimeBehavior(IMethodSymbol method)
+    {
+        if (!method.ContainingType.StaticConstructors.IsEmpty)
+        {
+            return "static type initialization";
+        }
+
+        return method.MethodImplementationFlags.HasFlag(MethodImplAttributes.Synchronized)
+            ? "implicit monitor synchronization"
+            : null;
+    }
+
     private sealed class ProfileOperationWalker : OperationWalker
     {
         private readonly Compilation compilation;
         private readonly Action<Diagnostic> reportDiagnostic;
         private readonly HashSet<IMethodSymbol> visiting = new(SymbolEqualityComparer.Default);
         private readonly HashSet<IMethodSymbol> visited = new(SymbolEqualityComparer.Default);
+        private int discoveredHelpers;
+        private bool resourceLimitExceeded;
 
         public ProfileOperationWalker(
             Compilation compilation,
@@ -221,7 +251,7 @@ public sealed class WarpCLRAnalyzer : DiagnosticAnalyzer
 
         public override void Visit(IOperation? operation)
         {
-            if (operation is null)
+            if (operation is null || resourceLimitExceeded)
             {
                 return;
             }
@@ -257,12 +287,25 @@ public sealed class WarpCLRAnalyzer : DiagnosticAnalyzer
                 return;
             }
 
+            if (operation is IInvocationOperation invocation &&
+                GetImplicitRuntimeBehavior(invocation.TargetMethod) is { } implicitBehavior)
+            {
+                reportDiagnostic(Diagnostic.Create(
+                    WarpDiagnosticDescriptors.ImplicitRuntimeBehavior,
+                    operation.Syntax.GetLocation(), invocation.TargetMethod.ToDisplayString(), implicitBehavior));
+                return;
+            }
+
             base.Visit(operation);
         }
 
         public override void VisitInvocation(IInvocationOperation operation)
         {
             base.VisitInvocation(operation);
+            if (resourceLimitExceeded)
+            {
+                return;
+            }
 
             IMethodSymbol target = operation.TargetMethod;
             if (visited.Contains(target) || !visiting.Add(target))
@@ -270,6 +313,17 @@ public sealed class WarpCLRAnalyzer : DiagnosticAnalyzer
                 return;
             }
 
+            if (discoveredHelpers == MaximumHelpersPerEntry)
+            {
+                resourceLimitExceeded = true;
+                visiting.Remove(target);
+                reportDiagnostic(Diagnostic.Create(
+                    WarpDiagnosticDescriptors.SourceResourceLimit,
+                    operation.Syntax.GetLocation(), discoveredHelpers + 1, MaximumHelpersPerEntry));
+                return;
+            }
+
+            discoveredHelpers++;
             try
             {
                 SyntaxReference declaration = target.DeclaringSyntaxReferences[0];

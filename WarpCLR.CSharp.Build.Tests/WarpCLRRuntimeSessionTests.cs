@@ -232,6 +232,7 @@ internal sealed class WarpCLRRuntimeSessionTests
     {
         RuntimeSourceFixture fixture = Fixture;
         var cache = new WarpJitCache();
+        await using var cacheLease = cache.ConfigureAwait(false);
         WarpCLRRuntimeSession first = fixture.Program.CreateRuntimeSession(WarpBackendKind.CoreCLR, TestOptions(), cache);
         await using var firstLease = first.ConfigureAwait(false);
         WarpCLRRuntimeSession second = fixture.Program.CreateRuntimeSession(WarpBackendKind.CoreCLR, TestOptions(), cache);
@@ -244,6 +245,20 @@ internal sealed class WarpCLRRuntimeSessionTests
         results[0][0] = 0;
         Assert.AreEqual(fixture.Evaluate(1, 7), results[1][0]);
         Assert.AreEqual(1u, input[0]);
+    }
+
+    [TestMethod]
+    public async Task InputReferenceCollectionCountIsReadOnceBeforeTheOwnedSnapshot()
+    {
+        RuntimeSourceFixture fixture = Fixture;
+        WarpCLRRuntimeSession session = fixture.Program.CreateRuntimeSession(WarpBackendKind.CoreCLR, TestOptions());
+        await using var sessionLease = session.ConfigureAwait(false);
+        var inputs = new SingleCountInputList(WarpUInt32Buffer.From(3));
+
+        WarpUInt32Buffer output = await session.DispatchAsync(fixture.Nested, inputs, [7]).ConfigureAwait(false);
+
+        Assert.AreEqual(fixture.Evaluate(3, 7), output[0]);
+        Assert.AreEqual(1, inputs.CountReads);
     }
 
     [ClassCleanup]
@@ -261,6 +276,37 @@ internal sealed class WarpCLRRuntimeSessionTests
         MaximumParallelWorkers = Math.Min(Environment.ProcessorCount, 8),
         MaximumResidentWorkers = 256,
     };
+
+    private sealed class SingleCountInputList(WarpUInt32Buffer buffer) : IReadOnlyList<WarpUInt32Buffer>
+    {
+        public int CountReads { get; private set; }
+
+        public int Count
+        {
+            get
+            {
+                if (++CountReads != 1)
+                {
+                    throw new InvalidOperationException("The SDK must not repeatedly query mutable caller collection counts.");
+                }
+
+                return 1;
+            }
+        }
+
+        public WarpUInt32Buffer this[int index]
+        {
+            get
+            {
+                ArgumentOutOfRangeException.ThrowIfNotEqual(index, 0);
+                return buffer;
+            }
+        }
+
+        IEnumerator<WarpUInt32Buffer> IEnumerable<WarpUInt32Buffer>.GetEnumerator() => throw new InvalidOperationException("The SDK must copy the fixed reference range by index.");
+
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => throw new InvalidOperationException("The SDK must copy the fixed reference range by index.");
+    }
 
     private sealed class RuntimeSourceFixture : IDisposable
     {

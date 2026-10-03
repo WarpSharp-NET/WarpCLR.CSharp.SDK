@@ -1,4 +1,6 @@
 using Microsoft.CodeAnalysis;
+using System.Globalization;
+using System.Text;
 using WarpCLR.IR;
 
 namespace WarpCLR.CSharp.Analyzers.Tests;
@@ -387,6 +389,266 @@ internal sealed class WarpCLRAnalyzerTests
             }
             """;
         await AssertContainsIdAsync(source, "WCS1003").ConfigureAwait(false);
+    }
+
+    [TestMethod]
+    [FourBackends]
+    public async Task ExplicitEntryTypeInitializationHasAnImplicitBehaviorDiagnostic(WarpBackendKind backend)
+    {
+        AssertBackend(backend);
+        const string source = """
+            using WarpCLR.CSharp;
+            public static class Kernels
+            {
+                static Kernels() => throw new System.InvalidOperationException();
+                [WarpEntryPoint]
+                public static uint Transform([WarpInput] uint value) => value;
+            }
+            """;
+        await AssertIdsAsync(source, "WCS1005").ConfigureAwait(false);
+    }
+
+    [TestMethod]
+    [FourBackends]
+    public async Task ImplicitEntryFieldInitializationHasAnImplicitBehaviorDiagnostic(WarpBackendKind backend)
+    {
+        AssertBackend(backend);
+        const string source = """
+            using WarpCLR.CSharp;
+            public static class Kernels
+            {
+                public static readonly uint Seed = 7;
+                [WarpEntryPoint]
+                public static uint Transform([WarpInput] uint value) => value;
+            }
+            """;
+        await AssertIdsAsync(source, "WCS1005").ConfigureAwait(false);
+    }
+
+    [TestMethod]
+    [FourBackends]
+    public async Task ExplicitHelperTypeInitializationHasAnImplicitBehaviorDiagnostic(WarpBackendKind backend)
+    {
+        AssertBackend(backend);
+        const string source = """
+            using WarpCLR.CSharp;
+            public static class Kernels
+            {
+                [WarpEntryPoint]
+                public static uint Transform([WarpInput] uint value) => Helper.Transform(value);
+            }
+            public static class Helper
+            {
+                static Helper() => throw new System.InvalidOperationException();
+                public static uint Transform(uint value) => value + 1u;
+            }
+            """;
+        await AssertIdsAsync(source, "WCS1005").ConfigureAwait(false);
+    }
+
+    [TestMethod]
+    [FourBackends]
+    public async Task ImplicitHelperPropertyInitializationHasAnImplicitBehaviorDiagnostic(WarpBackendKind backend)
+    {
+        AssertBackend(backend);
+        const string source = """
+            using WarpCLR.CSharp;
+            public static class Kernels
+            {
+                [WarpEntryPoint]
+                public static uint Transform([WarpInput] uint value) => Helper.Transform(value);
+            }
+            public static class Helper
+            {
+                public static uint Seed { get; } = 7;
+                public static uint Transform(uint value) => value + 1u;
+            }
+            """;
+        await AssertIdsAsync(source, "WCS1005").ConfigureAwait(false);
+    }
+
+    [TestMethod]
+    [FourBackends]
+    public async Task SynchronizedEntryHasAnImplicitBehaviorDiagnostic(WarpBackendKind backend)
+    {
+        AssertBackend(backend);
+        const string source = """
+            using System.Runtime.CompilerServices;
+            using WarpCLR.CSharp;
+            public static class Kernels
+            {
+                [WarpEntryPoint, MethodImpl(MethodImplOptions.Synchronized)]
+                public static uint Transform([WarpInput] uint value) => value;
+            }
+            """;
+        await AssertIdsAsync(source, "WCS1005").ConfigureAwait(false);
+    }
+
+    [TestMethod]
+    [FourBackends]
+    public async Task SynchronizedHelperHasAnImplicitBehaviorDiagnostic(WarpBackendKind backend)
+    {
+        AssertBackend(backend);
+        const string source = """
+            using System.Runtime.CompilerServices;
+            using WarpCLR.CSharp;
+            public static class Kernels
+            {
+                [WarpEntryPoint]
+                public static uint Transform([WarpInput] uint value) => Helper(value);
+                [MethodImpl(MethodImplOptions.Synchronized)]
+                private static uint Helper(uint value) => value + 1u;
+            }
+            """;
+        await AssertIdsAsync(source, "WCS1005").ConfigureAwait(false);
+    }
+
+    [TestMethod]
+    [FourBackends]
+    public async Task AModuleInitializerIsRejectedWhenTheModuleContainsKernelEntries(WarpBackendKind backend)
+    {
+        AssertBackend(backend);
+        const string source = """
+            using System.Runtime.CompilerServices;
+            using WarpCLR.CSharp;
+            public static class HostInitializer
+            {
+                [ModuleInitializer]
+                public static void Initialize() { }
+            }
+            public static class Kernels
+            {
+                [WarpEntryPoint]
+                public static uint Transform([WarpInput] uint value) => value;
+            }
+            """;
+        await AssertIdsAsync(source, "WCS1007").ConfigureAwait(false);
+    }
+
+    [TestMethod]
+    [FourBackends]
+    public async Task AModuleInitializerInAnOrdinaryHostModuleHasNoWarpDiagnostic(WarpBackendKind backend)
+    {
+        AssertBackend(backend);
+        const string source = """
+            using System.Runtime.CompilerServices;
+            public static class HostInitializer
+            {
+                [ModuleInitializer]
+                public static void Initialize() { }
+            }
+            """;
+        await AssertNoDiagnosticsAsync(source).ConfigureAwait(false);
+    }
+
+    [TestMethod]
+    [FourBackends]
+    public async Task UnrelatedHostAndGeneratedCatalogInitializersRemainOutsideTheKernelClosure(WarpBackendKind backend)
+    {
+        AssertBackend(backend);
+        const string source = """
+            using System.Runtime.CompilerServices;
+            using WarpCLR.CSharp;
+            public static class Kernels
+            {
+                [WarpEntryPoint]
+                public static uint Transform([WarpInput] uint value) => value;
+            }
+            public static class HostCode
+            {
+                static HostCode() { }
+                public static readonly uint Seed = 7;
+                [MethodImpl(MethodImplOptions.Synchronized)]
+                public static uint Transform(uint value) => value;
+            }
+            [CompilerGenerated]
+            public static class WarpCLRKernelsEntries
+            {
+                public static WarpMapEntry Transform { get; } = new("Kernels.Transform", 1, 0);
+            }
+            """;
+        await AssertNoDiagnosticsAsync(source).ConfigureAwait(false);
+    }
+
+    [TestMethod]
+    [FourBackends]
+    public async Task ConstantsDoNotCreateAnImplicitTypeInitializer(WarpBackendKind backend)
+    {
+        AssertBackend(backend);
+        const string source = """
+            using WarpCLR.CSharp;
+            public static class Kernels
+            {
+                public const uint Seed = 7;
+                [WarpEntryPoint]
+                public static uint Transform([WarpInput] uint value) => value ^ Seed;
+            }
+            """;
+        await AssertNoDiagnosticsAsync(source).ConfigureAwait(false);
+    }
+
+    [TestMethod]
+    [FourBackends]
+    public async Task HelperDiscoveryAcceptsExactlyTheSharedPortableFunctionLimit(WarpBackendKind backend)
+    {
+        AssertBackend(backend);
+        await AssertNoDiagnosticsAsync(CreateHelperChain(WarpCompilationAdmission.MaximumFunctionsPerEntry))
+            .ConfigureAwait(false);
+    }
+
+    [TestMethod]
+    [FourBackends]
+    public async Task HelperDiscoveryRejectsBeyondTheSharedPortableFunctionLimitBeforeRecursing(WarpBackendKind backend)
+    {
+        AssertBackend(backend);
+        Diagnostic[] diagnostics = (await AnalyzerTestHarness.AnalyzeAsync(
+            CreateHelperChain(WarpCompilationAdmission.MaximumFunctionsPerEntry + 1)).ConfigureAwait(false)).ToArray();
+
+        Assert.HasCount(1, diagnostics);
+        Assert.AreEqual("WCS1006", diagnostics[0].Id, StringComparer.Ordinal);
+        string limit = WarpCompilationAdmission.MaximumFunctionsPerEntry.ToString(CultureInfo.InvariantCulture);
+        StringAssert.Contains(diagnostics[0].GetMessage(CultureInfo.InvariantCulture), limit, StringComparison.Ordinal);
+    }
+
+    [TestMethod]
+    [FourBackends]
+    public async Task ReusingDiscoveredHelpersDoesNotSpendTheFunctionBudgetAgain(WarpBackendKind backend)
+    {
+        AssertBackend(backend);
+        await AssertNoDiagnosticsAsync(CreateHelperChain(WarpCompilationAdmission.MaximumFunctionsPerEntry, reuseHelpers: true))
+            .ConfigureAwait(false);
+    }
+
+    private static string CreateHelperChain(int count, bool reuseHelpers = false)
+    {
+        var source = new StringBuilder("using WarpCLR.CSharp; public static class Kernels { ");
+        source.Append("[WarpEntryPoint] public static uint Transform([WarpInput] uint value) => Helper0(value)");
+        if (reuseHelpers)
+        {
+            source.Append(" ^ Helper0(value + 1u)");
+        }
+
+        source.Append(';');
+        for (int index = 0; index < count; index++)
+        {
+            source.Append("private static uint Helper");
+            source.Append(index.ToString(CultureInfo.InvariantCulture));
+            source.Append("(uint value) => ");
+            if (index + 1 == count)
+            {
+                source.Append("value + 1u");
+            }
+            else
+            {
+                source.Append("Helper");
+                source.Append((index + 1).ToString(CultureInfo.InvariantCulture));
+                source.Append("(value)");
+            }
+
+            source.Append(';');
+        }
+
+        return source.Append('}').ToString();
     }
 
     private static async Task AssertIdsAsync(string source, params string[] expected)

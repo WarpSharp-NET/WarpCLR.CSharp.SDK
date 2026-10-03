@@ -89,8 +89,8 @@ public sealed class WarpCLRRuntimeSession : IAsyncDisposable
             throw new WarpHostException("WRPRUNTIME1004", "The input buffer count does not match the verified entry.");
         }
 
-        var storage = new uint[inputs.Count][];
-        for (int index = 0; index < inputs.Count; index++)
+        var storage = new uint[expectedCount][];
+        for (int index = 0; index < expectedCount; index++)
         {
             WarpUInt32Buffer input = inputs[index]
                 ?? throw new ArgumentException("An input buffer cannot be null.", nameof(inputs));
