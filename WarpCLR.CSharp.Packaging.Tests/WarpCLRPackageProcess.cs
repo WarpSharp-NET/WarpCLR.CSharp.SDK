@@ -17,49 +17,55 @@ internal static class WarpCLRPackageProcess
 
         using var timeout = new CancellationTokenSource(deadline);
         var clock = Stopwatch.StartNew();
-        using Process process = Process.Start(startInfo)
+        Process process = Process.Start(startInfo)
             ?? throw new InvalidOperationException("The package child process did not start.");
-        Task<string> standardOutput = process.StandardOutput.ReadToEndAsync();
-        Task<string> standardError = process.StandardError.ReadToEndAsync();
-        try
+        using var lifetime = new WarpCLRPackageProcessLifetime(process);
+        var execution = new WarpCLRPackageProcessExecution(process, lifetime);
+        Exception? exception = await execution.RunAsync(timeout.Token).ConfigureAwait(false);
+        if (exception is not null)
         {
-            await process.WaitForExitAsync(timeout.Token).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException exception)
-        {
-            if (!process.HasExited)
-            {
-                try
-                {
-                    process.Kill(entireProcessTree: true);
-                }
-                catch (InvalidOperationException) when (process.HasExited)
-                {
-                }
-            }
-
-            await process.WaitForExitAsync().ConfigureAwait(false);
-            string captured = Capture(await standardOutput.ConfigureAwait(false), await standardError.ConfigureAwait(false));
-            var failure = new TimeoutException(FormattableString.Invariant(
-                $"Package child exceeded {deadline.TotalSeconds} seconds; elapsed {clock.Elapsed}; PID {process.Id}.{Environment.NewLine}") +
-                Describe(startInfo) + captured, exception);
-            failure.Data["WarpCLR.ChildProcessId"] = process.Id;
+            string heading = timeout.IsCancellationRequested
+                ? FormattableString.Invariant($"Package child exceeded {deadline.TotalSeconds} seconds")
+                : "Package child exit/output observation failed";
+            TimeSpan elapsed = clock.Elapsed;
+            string message = heading + FailureIdentity(process.Id, elapsed) + Describe(startInfo) +
+                "Cleanup: " + execution.Cleanup + Environment.NewLine + execution.Output;
+            Exception failure = timeout.IsCancellationRequested
+                ? new TimeoutException(message, exception)
+                : new InvalidOperationException(message, exception);
+            AddFailureData(failure, process.Id, elapsed);
+            failure.Data["WarpCLR.CleanupIncomplete"] = execution.CleanupIncomplete;
+            failure.Data["WarpCLR.CleanupDisposition"] = execution.Cleanup;
+            failure.Data["WarpCLR.RootExitObserved"] = execution.RootExitObserved;
+            failure.Data["WarpCLR.ReadersStopped"] = execution.ReadersStopped;
+            failure.Data["WarpCLR.StandardOutputEndOfStream"] = execution.StandardOutputEndOfStream;
+            failure.Data["WarpCLR.StandardErrorEndOfStream"] = execution.StandardErrorEndOfStream;
+            failure.Data["WarpCLR.DescendantCleanupConfirmed"] = false;
             throw failure;
         }
 
-        string output = Capture(await standardOutput.ConfigureAwait(false), await standardError.ConfigureAwait(false));
-        var result = new WarpCLRPackageProcessResult(process.ExitCode, output, clock.Elapsed);
+        var result = new WarpCLRPackageProcessResult(process.ExitCode, execution.Output, clock.Elapsed);
         if (requireSuccess && result.ExitCode != 0)
         {
-            throw new InvalidOperationException("Package child failed with code " +
-                result.ExitCode.ToString(CultureInfo.InvariantCulture) + "." + Environment.NewLine + Describe(startInfo) + result.Output);
+            var failure = new InvalidOperationException("Package child failed with code " +
+                result.ExitCode.ToString(CultureInfo.InvariantCulture) + FailureIdentity(process.Id, result.Elapsed) +
+                Describe(startInfo) + result.Output);
+            AddFailureData(failure, process.Id, result.Elapsed);
+            failure.Data["WarpCLR.ChildExitCode"] = result.ExitCode;
+            throw failure;
         }
 
         return result;
     }
 
-    private static string Capture(string standardOutput, string standardError) =>
-        "stdout:" + Environment.NewLine + standardOutput + Environment.NewLine + "stderr:" + Environment.NewLine + standardError;
+    private static string FailureIdentity(int pid, TimeSpan elapsed) =>
+        FormattableString.Invariant($"; elapsed {elapsed}; PID {pid}.{Environment.NewLine}");
+
+    private static void AddFailureData(Exception failure, int pid, TimeSpan elapsed)
+    {
+        failure.Data["WarpCLR.ChildProcessId"] = pid;
+        failure.Data["WarpCLR.ChildElapsed"] = elapsed;
+    }
 
     private static string Describe(ProcessStartInfo startInfo) =>
         "Working directory: " + startInfo.WorkingDirectory + Environment.NewLine +
