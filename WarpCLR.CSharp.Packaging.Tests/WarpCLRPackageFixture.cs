@@ -97,13 +97,13 @@ internal sealed class WarpCLRPackageFixture : IDisposable
     {
         string validProject = CreateValidConsumer(root, feed);
         await RestoreConsumerAsync(root, validProject).ConfigureAwait(false);
-        ProcessResult validBuild = await BuildConsumerAsync(root, validProject).ConfigureAwait(false);
+        WarpCLRPackageProcessResult validBuild = await BuildConsumerAsync(root, validProject).ConfigureAwait(false);
         if (!validBuild.Output.Contains("WarpCLR finalized and verified the assembly.", StringComparison.Ordinal))
         {
             throw new InvalidOperationException("The package build did not finalize the consumer assembly.");
         }
 
-        ProcessResult incrementalBuild = await BuildConsumerAsync(root, validProject).ConfigureAwait(false);
+        WarpCLRPackageProcessResult incrementalBuild = await BuildConsumerAsync(root, validProject).ConfigureAwait(false);
         if (!incrementalBuild.Output.Contains("WarpCLR verified the finalized assembly.", StringComparison.Ordinal))
         {
             throw new InvalidOperationException("The incremental package build did not verify the assembly.");
@@ -113,7 +113,7 @@ internal sealed class WarpCLRPackageFixture : IDisposable
         byte[] consumerAssembly = await File.ReadAllBytesAsync(assemblyPath).ConfigureAwait(false);
         string invalidProject = CreateInvalidConsumer(root, feed);
         await RestoreConsumerAsync(root, invalidProject).ConfigureAwait(false);
-        ProcessResult invalidBuild = await BuildConsumerAsync(root, invalidProject, requireSuccess: false).ConfigureAwait(false);
+        WarpCLRPackageProcessResult invalidBuild = await BuildConsumerAsync(root, invalidProject, requireSuccess: false).ConfigureAwait(false);
         if (invalidBuild.ExitCode == 0 || !invalidBuild.Output.Contains("WCS1003", StringComparison.Ordinal))
         {
             throw new InvalidOperationException(
@@ -124,11 +124,11 @@ internal sealed class WarpCLRPackageFixture : IDisposable
             incrementalBuild.Output, ReadPackageAssets(packagePath));
     }
 
-    private static Task<ProcessResult> RestoreConsumerAsync(string root, string project) =>
+    private static Task<WarpCLRPackageProcessResult> RestoreConsumerAsync(string root, string project) =>
         RunDotNetAsync(root, Path.GetDirectoryName(project)!,
             ["restore", project, "--force", "--no-cache", "--verbosity", "minimal"]);
 
-    private static Task<ProcessResult> BuildConsumerAsync(
+    private static Task<WarpCLRPackageProcessResult> BuildConsumerAsync(
         string root, string project, bool requireSuccess = true) =>
         RunDotNetAsync(root, Path.GetDirectoryName(project)!,
             ["build", project, "-c", Configuration, "--no-restore", "--verbosity", "minimal"], requireSuccess);
@@ -155,14 +155,15 @@ internal sealed class WarpCLRPackageFixture : IDisposable
             root,
             warpClrRoot,
             ["restore", "WarpCLR.slnx", "--force", "--no-cache", "--verbosity", "minimal"]).ConfigureAwait(false);
-        await RunDotNetAsync(
-            root,
-            warpClrRoot,
-            ["build", "WarpCLR.Runtime.Host/WarpCLR.Runtime.Host.csproj", "-c", Configuration, "--no-restore", "--verbosity", "minimal"]).ConfigureAwait(false);
-        await RunDotNetAsync(
-            root,
-            warpClrRoot,
-            ["build", "WarpCLR.Sdk/WarpCLR.Sdk.csproj", "-c", Configuration, "--no-restore", "--verbosity", "minimal"]).ConfigureAwait(false);
+        // Build each restored project in dependency order. The finite child deadline
+        // covers one analyzer-enabled project, not a cold transitive graph.
+        foreach (string project in WarpCLRPackageProjects)
+        {
+            await RunDotNetAsync(root, warpClrRoot,
+                ["build", project, "-c", Configuration, "--no-restore", "--verbosity", "minimal",
+                    "-p:BuildProjectReferences=false", "--disable-build-servers", "-m:1", "-nr:false",
+                    "-p:UseSharedCompilation=false"]).ConfigureAwait(false);
+        }
 
         foreach (string project in WarpCLRPackageProjects)
         {
@@ -183,10 +184,20 @@ internal sealed class WarpCLRPackageFixture : IDisposable
             root,
             sdkRoot,
             ["restore", project, "--force", "--no-cache", "--verbosity", "minimal"]).ConfigureAwait(false);
-        await RunDotNetAsync(
-            root,
-            sdkRoot,
-            ["build", project, "-c", Configuration, "--no-restore", "--verbosity", "minimal"]).ConfigureAwait(false);
+        string[] projects =
+        [
+            "WarpCLR.CSharp.Analyzers/WarpCLR.CSharp.Analyzers.csproj",
+            "WarpCLR.CSharp.Build/WarpCLR.CSharp.Build.csproj",
+            "WarpCLR.CSharp.Generators/WarpCLR.CSharp.Generators.csproj",
+            project,
+        ];
+        foreach (string buildProject in projects)
+        {
+            await RunDotNetAsync(root, sdkRoot,
+                ["build", buildProject, "-c", Configuration, "--no-restore", "--verbosity", "minimal",
+                    "-p:BuildProjectReferences=false", "--disable-build-servers", "-m:1", "-nr:false",
+                    "-p:UseSharedCompilation=false"]).ConfigureAwait(false);
+        }
         await RunDotNetAsync(
             root,
             sdkRoot,
@@ -316,35 +327,13 @@ internal sealed class WarpCLRPackageFixture : IDisposable
             .ToArray();
     }
 
-    private static async Task<ProcessResult> RunDotNetAsync(
+    private static async Task<WarpCLRPackageProcessResult> RunDotNetAsync(
         string root, string workingDirectory, IReadOnlyList<string> arguments, bool requireSuccess = true)
     {
-        using Process process = Process.Start(CreateDotNetStartInfo(root, workingDirectory, arguments))
-            ?? throw new InvalidOperationException("The dotnet process did not start.");
-        Task<string> standardOutput = process.StandardOutput.ReadToEndAsync();
-        Task<string> standardError = process.StandardError.ReadToEndAsync();
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(120));
-        try
-        {
-            await process.WaitForExitAsync(timeout.Token).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException exception)
-        {
-            process.Kill(entireProcessTree: true);
-            await process.WaitForExitAsync().ConfigureAwait(false);
-            await standardOutput.ConfigureAwait(false);
-            await standardError.ConfigureAwait(false);
-            throw new TimeoutException("The dotnet process exceeded 120 seconds.", exception);
-        }
-
-        string output = await standardOutput.ConfigureAwait(false) + await standardError.ConfigureAwait(false);
-        var result = new ProcessResult(process.ExitCode, output);
-        if (requireSuccess && result.ExitCode != 0)
-        {
-            throw new InvalidOperationException(
-                $"The dotnet command failed with code {result.ExitCode}.{Environment.NewLine}{result.Output}");
-        }
-
+        WarpCLRPackageProcessResult result = await WarpCLRPackageProcess.RunAsync(
+            CreateDotNetStartInfo(root, workingDirectory, arguments), TimeSpan.FromSeconds(120), requireSuccess).ConfigureAwait(false);
+        Console.WriteLine($"Package child completed in {result.Elapsed}: dotnet {string.Join(' ', arguments)}");
+        Console.WriteLine(result.Output);
         return result;
     }
 
@@ -424,6 +413,4 @@ internal sealed class WarpCLRPackageFixture : IDisposable
             Directory.Delete(path, recursive: true);
         }
     }
-
-    private sealed record ProcessResult(int ExitCode, string Output);
 }

@@ -4,11 +4,13 @@
     <IsTestProject>true</IsTestProject>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" PrivateAssets="all" />
     <PackageReference Include="MSTest" />
     <PackageReference Include="MSTest.Analyzers" PrivateAssets="all" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="..\WarpCLR.CSharp.Testing\FourBackendsAttribute.cs" Link="Testing\FourBackendsAttribute.cs" />
+    <Compile Include="..\WarpCLR.CSharp.Testing\RoslynCompilationFactory.cs" Link="Testing\RoslynCompilationFactory.cs" />
     <ProjectReference Include="..\WarpCLR.CSharp\WarpCLR.CSharp.csproj" />
     <ProjectReference Include="$(WarpClrRepositoryRoot)\WarpCLR.IR\WarpCLR.IR.csproj" />
     <ProjectReference Include="$(WarpClrRepositoryRoot)\WarpCLR.Runtime.Host\WarpCLR.Runtime.Host.csproj" />
