@@ -10,8 +10,15 @@ internal sealed class WarpCLRPackageFixture : IDisposable
 {
     private const string Configuration = "Release";
     private const string PackageVersion = "0.1.0";
+    private const string CoreCLRWorkerProject = "WarpCLR.CoreCLR.Worker/WarpCLR.CoreCLR.Worker.csproj";
     private static readonly UTF8Encoding Utf8WithoutBom = new(false);
-    private static readonly string[] WarpCLRPackageProjects =
+    private static readonly string[] CoreCLRWorkerFiles =
+    [
+        "WarpCLR.CoreCLR.Worker.dll",
+        "WarpCLR.CoreCLR.Worker.deps.json",
+        "WarpCLR.CoreCLR.Worker.runtimeconfig.json",
+    ];
+    private static readonly string[] WarpCLRBuildProjects =
     [
         "WarpCLR.IR/WarpCLR.IR.csproj",
         "WarpCLR.Backend.CoreCLR/WarpCLR.Backend.CoreCLR.csproj",
@@ -20,6 +27,7 @@ internal sealed class WarpCLRPackageFixture : IDisposable
         "WarpCLR.Backend.SPIRV/WarpCLR.Backend.SPIRV.csproj",
         "WarpCLR.Verifier/WarpCLR.Verifier.csproj",
         "WarpCLR.Compiler/WarpCLR.Compiler.csproj",
+        CoreCLRWorkerProject,
         "WarpCLR.Runtime.Host/WarpCLR.Runtime.Host.csproj",
         "WarpCLR.Sdk/WarpCLR.Sdk.csproj",
     ];
@@ -66,7 +74,11 @@ internal sealed class WarpCLRPackageFixture : IDisposable
         }
         catch
         {
-            DeleteTemporaryDirectory(root);
+            if (!string.Equals(Environment.GetEnvironmentVariable("WARP_PACKAGE_TEST_RETAIN_FAILURES"), "1", StringComparison.Ordinal))
+            {
+                DeleteTemporaryDirectory(root);
+            }
+
             throw;
         }
     }
@@ -103,6 +115,8 @@ internal sealed class WarpCLRPackageFixture : IDisposable
             throw new InvalidOperationException("The package build did not finalize the consumer assembly.");
         }
 
+        await ValidateCoreCLRWorkerDeploymentAsync(root, feed).ConfigureAwait(false);
+
         WarpCLRPackageProcessResult incrementalBuild = await BuildConsumerAsync(root, validProject).ConfigureAwait(false);
         if (!incrementalBuild.Output.Contains("WarpCLR verified the finalized assembly.", StringComparison.Ordinal))
         {
@@ -122,6 +136,24 @@ internal sealed class WarpCLRPackageFixture : IDisposable
 
         return new WarpCLRPackageFixture(root, packagePath, consumerAssembly, invalidBuild.Output,
             incrementalBuild.Output, ReadPackageAssets(packagePath));
+    }
+
+    private static async Task ValidateCoreCLRWorkerDeploymentAsync(string root, string feed)
+    {
+        using ZipArchive package = await ZipFile.OpenReadAsync(Path.Combine(feed, $"WarpCLR.Runtime.Host.{PackageVersion}.nupkg")).ConfigureAwait(false);
+        foreach (string file in CoreCLRWorkerFiles)
+        {
+            ZipArchiveEntry entry = package.GetEntry("tools/coreclr-worker/" + file)
+                ?? throw new InvalidOperationException($"The runtime package omits {file}.");
+            using Stream input = await entry.OpenAsync().ConfigureAwait(false);
+            using MemoryStream expected = new();
+            await input.CopyToAsync(expected).ConfigureAwait(false);
+            byte[] actual = await File.ReadAllBytesAsync(Path.Combine(root, "artifacts", "bin", "Consumer", "release", file)).ConfigureAwait(false);
+            if (!actual.AsSpan().SequenceEqual(expected.ToArray()))
+            {
+                throw new InvalidOperationException($"The consumer did not receive the exact packaged {file}.");
+            }
+        }
     }
 
     private static Task<WarpCLRPackageProcessResult> RestoreConsumerAsync(string root, string project) =>
@@ -157,7 +189,7 @@ internal sealed class WarpCLRPackageFixture : IDisposable
             ["restore", "WarpCLR.slnx", "--force", "--no-cache", "--verbosity", "minimal"]).ConfigureAwait(false);
         // Build each restored project in dependency order. The finite child deadline
         // covers one analyzer-enabled project, not a cold transitive graph.
-        foreach (string project in WarpCLRPackageProjects)
+        foreach (string project in WarpCLRBuildProjects)
         {
             await RunDotNetAsync(root, warpClrRoot,
                 ["build", project, "-c", Configuration, "--no-restore", "--verbosity", "minimal",
@@ -165,8 +197,13 @@ internal sealed class WarpCLRPackageFixture : IDisposable
                     "-p:UseSharedCompilation=false"]).ConfigureAwait(false);
         }
 
-        foreach (string project in WarpCLRPackageProjects)
+        foreach (string project in WarpCLRBuildProjects)
         {
+            if (string.Equals(project, CoreCLRWorkerProject, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
             await RunDotNetAsync(
                 root,
                 warpClrRoot,
